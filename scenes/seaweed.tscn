@@ -1,0 +1,72 @@
+[gd_scene load_steps=42 format=3]
+
+[ext_resource type="Script" path="res://scripts/seaweed.gd" id="1_seaweed"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_fresh0_f0.png" id="2_fresh00"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_fresh0_f1.png" id="3_fresh01"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_fresh0_f2.png" id="4_fresh02"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_fresh0_f3.png" id="5_fresh03"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_fresh1_f0.png" id="6_fresh10"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_fresh1_f1.png" id="7_fresh11"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_fresh1_f2.png" id="8_fresh12"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_fresh1_f3.png" id="9_fresh13"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_fresh2_f0.png" id="10_fresh20"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_fresh2_f1.png" id="11_fresh21"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_fresh2_f2.png" id="12_fresh22"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_fresh2_f3.png" id="13_fresh23"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_drift0_f0.png" id="14_drift00"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_drift0_f1.png" id="15_drift01"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_drift0_f2.png" id="16_drift02"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_drift0_f3.png" id="17_drift03"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_drift1_f0.png" id="18_drift10"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_drift1_f1.png" id="19_drift11"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_drift1_f2.png" id="20_drift12"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_drift1_f3.png" id="21_drift13"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_drift2_f0.png" id="22_drift20"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_drift2_f1.png" id="23_drift21"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_drift2_f2.png" id="24_drift22"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_drift2_f3.png" id="25_drift23"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_kelp0_f0.png" id="26_kelp00"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_kelp0_f1.png" id="27_kelp01"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_kelp0_f2.png" id="28_kelp02"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_kelp0_f3.png" id="29_kelp03"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_kelp1_f0.png" id="30_kelp10"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_kelp1_f1.png" id="31_kelp11"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_kelp1_f2.png" id="32_kelp12"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_kelp1_f3.png" id="33_kelp13"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_kelp2_f0.png" id="34_kelp20"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_kelp2_f1.png" id="35_kelp21"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_kelp2_f2.png" id="36_kelp22"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_kelp2_f3.png" id="37_kelp23"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_rot0_f0.png" id="38_rot00"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_rot1_f0.png" id="39_rot10"]
+[ext_resource type="Texture2D" path="res://assets/sprites/sea_rot2_f0.png" id="40_rot20"]
+
+[sub_resource type="RectangleShape2D" id="shape_seaweed"]
+size = Vector2(16, 16)
+
+[node name="Seaweed" type="Area2D"]
+collision_layer = 0
+collision_mask = 2
+script = ExtResource("1_seaweed")
+tex_fresh = Array[Texture2D]([ExtResource("2_fresh00"), ExtResource("3_fresh01"), ExtResource("4_fresh02"), ExtResource("5_fresh03"), ExtResource("6_fresh10"), ExtResource("7_fresh11"), ExtResource("8_fresh12"), ExtResource("9_fresh13"), ExtResource("10_fresh20"), ExtResource("11_fresh21"), ExtResource("12_fresh22"), ExtResource("13_fresh23")])
+tex_drift = Array[Texture2D]([ExtResource("14_drift00"), ExtResource("15_drift01"), ExtResource("16_drift02"), ExtResource("17_drift03"), ExtResource("18_drift10"), ExtResource("19_drift11"), ExtResource("20_drift12"), ExtResource("21_drift13"), ExtResource("22_drift20"), ExtResource("23_drift21"), ExtResource("24_drift22"), ExtResource("25_drift23")])
+tex_kelp = Array[Texture2D]([ExtResource("26_kelp00"), ExtResource("27_kelp01"), ExtResource("28_kelp02"), ExtResource("29_kelp03"), ExtResource("30_kelp10"), ExtResource("31_kelp11"), ExtResource("32_kelp12"), ExtResource("33_kelp13"), ExtResource("34_kelp20"), ExtResource("35_kelp21"), ExtResource("36_kelp22"), ExtResource("37_kelp23")])
+tex_rot = Array[Texture2D]([ExtResource("38_rot00"), ExtResource("39_rot10"), ExtResource("40_rot20")])
+
+[node name="Shape" type="CollisionShape2D" parent="."]
+shape = SubResource("shape_seaweed")
+
+[node name="Sprite" type="Sprite2D" parent="."]
+visible = false
+
+[node name="SpriteRot" type="Sprite2D" parent="."]
+visible = false
+modulate = Color(1, 1, 1, 0)
+
+[node name="Visual" type="ColorRect" parent="."]
+offset_left = -8.0
+offset_top = -8.0
+offset_right = 8.0
+offset_bottom = 8.0
+mouse_filter = 2
+color = Color(0.24, 0.58, 0.28, 1)

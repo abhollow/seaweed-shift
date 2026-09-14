@@ -1,0 +1,19 @@
+# Godot's import cache. Regenerated on open, and stale copies are the #1 cause
+# of "could not find type" errors after pulling — never commit it.
+.godot/
+*.import
+
+# Export output
+build/
+export/
+*.apk
+*.aab
+*.ipa
+
+# Python bytecode from the art pipeline
+__pycache__/
+*.pyc
+
+# OS noise
+.DS_Store
+Thumbs.db

@@ -1,0 +1,32 @@
+name: Smoke test
+
+# Runs the headless assertion suite on every push and pull request. The suite is
+# the project's safety net -- 188 checks covering zones, upgrades, save/load,
+# animation wiring and UI layout -- so it should gate merges, not sit unrun.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Godot 4.3
+        run: |
+          wget -q https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
+          unzip -q Godot_v4.3-stable_linux.x86_64.zip
+          chmod +x Godot_v4.3-stable_linux.x86_64
+
+      # Import FIRST. Without this the class cache is missing and every
+      # class_name lookup fails with a confusing parse error.
+      - name: Import project
+        run: ./Godot_v4.3-stable_linux.x86_64 --headless --path . --import
+
+      - name: Run smoke test
+        run: |
+          ./Godot_v4.3-stable_linux.x86_64 --headless --path . \
+            --script res://tools/smoke_test.gd 2>&1 | tee result.txt
+          grep -q "0 failed" result.txt

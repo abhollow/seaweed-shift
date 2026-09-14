@@ -1,0 +1,21 @@
+[gd_scene load_steps=13 format=3]
+
+[ext_resource type="Script" path="res://scripts/game.gd" id="1_game"]
+[ext_resource type="Texture2D" path="res://assets/sprites/background_level1.png" id="2_bg"]
+[ext_resource type="Texture2D" path="res://assets/sprites/obj_00.png" id="90_bin"]
+[ext_resource type="Texture2D" path="res://assets/sprites/obj_02.png" id="91_buoy"]
+[ext_resource type="Texture2D" path="res://assets/sprites/water_00.png" id="3_w0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/water_01.png" id="4_w1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/water_02.png" id="5_w2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/water_03.png" id="6_w3"]
+[ext_resource type="Texture2D" path="res://assets/sprites/water_04.png" id="7_w4"]
+[ext_resource type="Texture2D" path="res://assets/sprites/water_05.png" id="8_w5"]
+[ext_resource type="Texture2D" path="res://assets/sprites/water_06.png" id="9_w6"]
+[ext_resource type="Texture2D" path="res://assets/sprites/water_07.png" id="10_w7"]
+
+[node name="Game" type="Node2D"]
+script = ExtResource("1_game")
+tex_background = ExtResource("2_bg")
+tex_bin = ExtResource("90_bin")
+tex_buoy = ExtResource("91_buoy")
+tex_water_frames = Array[Texture2D]([ExtResource("3_w0"), ExtResource("4_w1"), ExtResource("5_w2"), ExtResource("6_w3"), ExtResource("7_w4"), ExtResource("8_w5"), ExtResource("9_w6"), ExtResource("10_w7")])

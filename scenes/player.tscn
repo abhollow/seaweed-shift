@@ -1,0 +1,131 @@
+[gd_scene load_steps=72 format=3]
+
+[ext_resource type="Script" path="res://scripts/player.gd" id="1_player"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_s0_f0.png" id="2_bare0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_s0_f1.png" id="3_bare1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_s1_f0.png" id="4_rake0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_s1_f1.png" id="5_rake1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_s2_f0.png" id="6_backpack0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_s2_f1.png" id="7_backpack1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_b0_f0.png" id="8_bare_back0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_b0_f1.png" id="9_bare_back1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_b1_f0.png" id="10_rake_back0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_b1_f1.png" id="11_rake_back1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_b2_f0.png" id="12_backpack_back0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_b2_f1.png" id="13_backpack_back1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_s3_f0.png" id="14_tractor0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_s3_f1.png" id="15_tractor1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_s3_f2.png" id="16_tractor2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_s3_f3.png" id="17_tractor3"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_s4_f0.png" id="18_hopper0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_s4_f1.png" id="19_hopper1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_s4_f2.png" id="20_hopper2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_s4_f3.png" id="21_hopper3"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_b3_f0.png" id="22_tractor_back0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_b3_f1.png" id="23_tractor_back1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_b3_f2.png" id="24_tractor_back2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_b3_f3.png" id="25_tractor_back3"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_b4_f0.png" id="26_hopper_back0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_b4_f1.png" id="27_hopper_back1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_b4_f2.png" id="28_hopper_back2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player_b4_f3.png" id="29_hopper_back3"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pwade_s0_f0.png" id="30_bare_wade0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pwade_s0_f1.png" id="31_bare_wade1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pwade_s0_f2.png" id="32_bare_wade2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pwade_s0_f3.png" id="33_bare_wade3"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pwade_s1_f0.png" id="34_rake_wade0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pwade_s1_f1.png" id="35_rake_wade1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pwade_s1_f2.png" id="36_rake_wade2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pwade_s1_f3.png" id="37_rake_wade3"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pwade_s2_f0.png" id="38_backpack_wade0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pwade_s2_f1.png" id="39_backpack_wade1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pwade_s2_f2.png" id="40_backpack_wade2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pwade_s2_f3.png" id="41_backpack_wade3"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pwade_b0_f0.png" id="42_bare_wade_back0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pwade_b0_f1.png" id="43_bare_wade_back1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pwade_b0_f2.png" id="44_bare_wade_back2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pwade_b0_f3.png" id="45_bare_wade_back3"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pwade_b1_f0.png" id="46_rake_wade_back0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pwade_b1_f1.png" id="47_rake_wade_back1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pwade_b1_f2.png" id="48_rake_wade_back2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pwade_b1_f3.png" id="49_rake_wade_back3"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pwade_b2_f0.png" id="50_backpack_wade_back0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pwade_b2_f1.png" id="51_backpack_wade_back1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pwade_b2_f2.png" id="52_backpack_wade_back2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pwade_b2_f3.png" id="53_backpack_wade_back3"]
+[ext_resource type="Texture2D" path="res://assets/sprites/trwade_s3_f0.png" id="54_tractor_wade0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/trwade_s3_f1.png" id="55_tractor_wade1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/trwade_s3_f2.png" id="56_tractor_wade2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/trwade_s3_f3.png" id="57_tractor_wade3"]
+[ext_resource type="Texture2D" path="res://assets/sprites/trwade_b3_f0.png" id="58_tractor_wade_back0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/trwade_b3_f1.png" id="59_tractor_wade_back1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/trwade_b3_f2.png" id="60_tractor_wade_back2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/trwade_b3_f3.png" id="61_tractor_wade_back3"]
+[ext_resource type="Texture2D" path="res://assets/sprites/trwade_s4_f0.png" id="62_hopper_wade0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/trwade_s4_f1.png" id="63_hopper_wade1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/trwade_s4_f2.png" id="64_hopper_wade2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/trwade_s4_f3.png" id="65_hopper_wade3"]
+[ext_resource type="Texture2D" path="res://assets/sprites/trwade_b4_f0.png" id="66_hopper_wade_back0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/trwade_b4_f1.png" id="67_hopper_wade_back1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/trwade_b4_f2.png" id="68_hopper_wade_back2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/trwade_b4_f3.png" id="69_hopper_wade_back3"]
+
+[sub_resource type="RectangleShape2D" id="shape_body"]
+size = Vector2(24, 24)
+
+[sub_resource type="RectangleShape2D" id="shape_gather"]
+size = Vector2(48, 48)
+
+[node name="Player" type="CharacterBody2D"]
+script = ExtResource("1_player")
+tex_bare = Array[Texture2D]([ExtResource("2_bare0"), ExtResource("3_bare1")])
+tex_rake = Array[Texture2D]([ExtResource("4_rake0"), ExtResource("5_rake1")])
+tex_backpack = Array[Texture2D]([ExtResource("6_backpack0"), ExtResource("7_backpack1")])
+tex_bare_back = Array[Texture2D]([ExtResource("8_bare_back0"), ExtResource("9_bare_back1")])
+tex_rake_back = Array[Texture2D]([ExtResource("10_rake_back0"), ExtResource("11_rake_back1")])
+tex_backpack_back = Array[Texture2D]([ExtResource("12_backpack_back0"), ExtResource("13_backpack_back1")])
+tex_tractor = Array[Texture2D]([ExtResource("14_tractor0"), ExtResource("15_tractor1"), ExtResource("16_tractor2"), ExtResource("17_tractor3")])
+tex_hopper = Array[Texture2D]([ExtResource("18_hopper0"), ExtResource("19_hopper1"), ExtResource("20_hopper2"), ExtResource("21_hopper3")])
+tex_tractor_back = Array[Texture2D]([ExtResource("22_tractor_back0"), ExtResource("23_tractor_back1"), ExtResource("24_tractor_back2"), ExtResource("25_tractor_back3")])
+tex_hopper_back = Array[Texture2D]([ExtResource("26_hopper_back0"), ExtResource("27_hopper_back1"), ExtResource("28_hopper_back2"), ExtResource("29_hopper_back3")])
+tex_bare_wade = Array[Texture2D]([ExtResource("30_bare_wade0"), ExtResource("31_bare_wade1"), ExtResource("32_bare_wade2"), ExtResource("33_bare_wade3")])
+tex_rake_wade = Array[Texture2D]([ExtResource("34_rake_wade0"), ExtResource("35_rake_wade1"), ExtResource("36_rake_wade2"), ExtResource("37_rake_wade3")])
+tex_backpack_wade = Array[Texture2D]([ExtResource("38_backpack_wade0"), ExtResource("39_backpack_wade1"), ExtResource("40_backpack_wade2"), ExtResource("41_backpack_wade3")])
+tex_bare_wade_back = Array[Texture2D]([ExtResource("42_bare_wade_back0"), ExtResource("43_bare_wade_back1"), ExtResource("44_bare_wade_back2"), ExtResource("45_bare_wade_back3")])
+tex_rake_wade_back = Array[Texture2D]([ExtResource("46_rake_wade_back0"), ExtResource("47_rake_wade_back1"), ExtResource("48_rake_wade_back2"), ExtResource("49_rake_wade_back3")])
+tex_backpack_wade_back = Array[Texture2D]([ExtResource("50_backpack_wade_back0"), ExtResource("51_backpack_wade_back1"), ExtResource("52_backpack_wade_back2"), ExtResource("53_backpack_wade_back3")])
+tex_tractor_wade = Array[Texture2D]([ExtResource("54_tractor_wade0"), ExtResource("55_tractor_wade1"), ExtResource("56_tractor_wade2"), ExtResource("57_tractor_wade3")])
+tex_tractor_wade_back = Array[Texture2D]([ExtResource("58_tractor_wade_back0"), ExtResource("59_tractor_wade_back1"), ExtResource("60_tractor_wade_back2"), ExtResource("61_tractor_wade_back3")])
+tex_hopper_wade = Array[Texture2D]([ExtResource("62_hopper_wade0"), ExtResource("63_hopper_wade1"), ExtResource("64_hopper_wade2"), ExtResource("65_hopper_wade3")])
+tex_hopper_wade_back = Array[Texture2D]([ExtResource("66_hopper_wade_back0"), ExtResource("67_hopper_wade_back1"), ExtResource("68_hopper_wade_back2"), ExtResource("69_hopper_wade_back3")])
+
+[node name="Shape" type="CollisionShape2D" parent="."]
+shape = SubResource("shape_body")
+
+[node name="GatherArea" type="Area2D" parent="."]
+collision_layer = 2
+collision_mask = 0
+monitoring = false
+
+[node name="Shape" type="CollisionShape2D" parent="GatherArea"]
+shape = SubResource("shape_gather")
+
+[node name="ReachVisual" type="ColorRect" parent="."]
+z_index = -1
+offset_left = -24.0
+offset_top = -24.0
+offset_right = 24.0
+offset_bottom = 24.0
+mouse_filter = 2
+color = Color(1, 1, 1, 0.1)
+
+[node name="Sprite" type="Sprite2D" parent="."]
+visible = false
+
+[node name="Visual" type="ColorRect" parent="."]
+offset_left = -12.0
+offset_top = -12.0
+offset_right = 12.0
+offset_bottom = 12.0
+mouse_filter = 2
+color = Color(0.95, 0.78, 0.35, 1)

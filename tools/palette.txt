@@ -1,0 +1,46 @@
+# Seaweed Shift palette. One hex colour per line, "#" starts a comment.
+# Every sprite is snapped to these, which is what makes generated art cohere.
+
+# --- terrain ---
+E6D19E   sand
+D4BC85   sand shadow
+4D9EB8   shallows
+2F7A94   shallows deep
+1A477A   deep water
+0F2E52   deep water shadow
+5C5766   hotel grounds
+423E4A   hotel shadow
+9E9994   concrete apron
+7A756F   concrete shadow
+
+# --- seaweed ---
+3D9447   fresh
+2B6B33   fresh shadow
+215C33   pile
+4D996B   drifting
+1A8575   kelp
+0F5C50   kelp shadow
+735426   rot
+4A3618   rot shadow
+8C7A5C   rot bleached
+A89478   rot bone tan
+2E2620   rot blackened
+
+# --- characters ---
+F2C759   worker hi-vis
+C49A38   worker shadow
+E8C08A   skin
+B08A5E   skin shadow
+D97340   tractor
+A84F26   tractor shadow
+EB6B73   tourist
+B84450   tourist shadow
+F09B4A   tourist rowdy
+
+# --- objects ---
+F5E06B   package
+F2D94D   buoy
+4A4A47   metal
+2C2C2A   metal shadow
+FFFFFF   highlight
+1A1A18   outline

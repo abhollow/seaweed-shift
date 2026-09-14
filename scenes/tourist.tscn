@@ -1,0 +1,87 @@
+[gd_scene load_steps=51 format=3]
+
+[ext_resource type="Script" path="res://scripts/tourist.gd" id="1_tourist"]
+[ext_resource type="Texture2D" path="res://assets/sprites/tf_sober_male_f0.png" id="2_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/tf_sober_male_f1.png" id="3_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/tb_sober_male_f0.png" id="4_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/tb_sober_male_f1.png" id="5_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/tf_sober_female_f0.png" id="6_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/tf_sober_female_f1.png" id="7_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/tb_sober_female_f0.png" id="8_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/tb_sober_female_f1.png" id="9_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/tf_drunk_male_f0.png" id="10_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/tf_drunk_male_f1.png" id="11_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/tb_drunk_male_f0.png" id="12_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/tb_drunk_male_f1.png" id="13_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/tf_drunk_female_f0.png" id="14_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/tf_drunk_female_f1.png" id="15_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/tb_drunk_female_f0.png" id="16_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/tb_drunk_female_f1.png" id="17_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twm0_f0.png" id="18_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twm0_f1.png" id="19_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twm0_f2.png" id="20_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twm0_f3.png" id="21_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twm1_f0.png" id="22_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twm1_f1.png" id="23_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twm1_f2.png" id="24_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twm1_f3.png" id="25_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twm2_f0.png" id="26_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twm2_f1.png" id="27_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twm2_f2.png" id="28_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twm2_f3.png" id="29_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twm3_f0.png" id="30_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twm3_f1.png" id="31_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twm3_f2.png" id="32_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twm3_f3.png" id="33_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twf0_f0.png" id="34_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twf0_f1.png" id="35_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twf0_f2.png" id="36_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twf0_f3.png" id="37_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twf1_f0.png" id="38_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twf1_f1.png" id="39_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twf1_f2.png" id="40_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twf1_f3.png" id="41_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twf2_f0.png" id="42_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twf2_f1.png" id="43_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twf2_f2.png" id="44_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twf2_f3.png" id="45_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twf3_f0.png" id="46_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twf3_f1.png" id="47_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twf3_f2.png" id="48_t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/twf3_f3.png" id="49_t"]
+
+[sub_resource type="RectangleShape2D" id="shape_tourist"]
+size = Vector2(16, 24)
+
+[node name="Tourist" type="Area2D"]
+script = ExtResource("1_tourist")
+tex_sober_m = Array[Texture2D]([ExtResource("2_t"), ExtResource("3_t")])
+tex_sober_m_back = Array[Texture2D]([ExtResource("4_t"), ExtResource("5_t")])
+tex_sober_f = Array[Texture2D]([ExtResource("6_t"), ExtResource("7_t")])
+tex_sober_f_back = Array[Texture2D]([ExtResource("8_t"), ExtResource("9_t")])
+tex_drunk_m = Array[Texture2D]([ExtResource("10_t"), ExtResource("11_t")])
+tex_drunk_m_back = Array[Texture2D]([ExtResource("12_t"), ExtResource("13_t")])
+tex_drunk_f = Array[Texture2D]([ExtResource("14_t"), ExtResource("15_t")])
+tex_drunk_f_back = Array[Texture2D]([ExtResource("16_t"), ExtResource("17_t")])
+tex_wade_sober_m = Array[Texture2D]([ExtResource("18_t"), ExtResource("19_t"), ExtResource("20_t"), ExtResource("21_t")])
+tex_wade_sober_m_back = Array[Texture2D]([ExtResource("22_t"), ExtResource("23_t"), ExtResource("24_t"), ExtResource("25_t")])
+tex_wade_drunk_m = Array[Texture2D]([ExtResource("26_t"), ExtResource("27_t"), ExtResource("28_t"), ExtResource("29_t")])
+tex_wade_drunk_m_back = Array[Texture2D]([ExtResource("30_t"), ExtResource("31_t"), ExtResource("32_t"), ExtResource("33_t")])
+tex_wade_sober_f = Array[Texture2D]([ExtResource("34_t"), ExtResource("35_t"), ExtResource("36_t"), ExtResource("37_t")])
+tex_wade_sober_f_back = Array[Texture2D]([ExtResource("38_t"), ExtResource("39_t"), ExtResource("40_t"), ExtResource("41_t")])
+tex_wade_drunk_f = Array[Texture2D]([ExtResource("42_t"), ExtResource("43_t"), ExtResource("44_t"), ExtResource("45_t")])
+tex_wade_drunk_f_back = Array[Texture2D]([ExtResource("46_t"), ExtResource("47_t"), ExtResource("48_t"), ExtResource("49_t")])
+
+[node name="Shape" type="CollisionShape2D" parent="."]
+shape = SubResource("shape_tourist")
+
+[node name="Sprite" type="Sprite2D" parent="."]
+visible = false
+
+[node name="Visual" type="ColorRect" parent="."]
+offset_left = -8.0
+offset_top = -12.0
+offset_right = 8.0
+offset_bottom = 12.0
+mouse_filter = 2
+color = Color(0.92, 0.42, 0.45, 1)
