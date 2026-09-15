@@ -14,12 +14,12 @@ const SOUNDS := {
 	"pickup": "res://audio/pickup.mp3",
 	"dump": "res://audio/dump.mp3",
 	"full": "res://audio/full.mp3",
-	"purchase": "res://audio/purchase.wav",
-	"package": "res://audio/package.wav",
+	"purchase": "res://audio/purchase.mp3",
+	"package": "res://audio/package.mp3",
 	"hit": "res://audio/hit.wav",
-	"rot": "res://audio/rot.wav",
+	"rot": "res://audio/rot.mp3",
 	"warn": "res://audio/warn.mp3",
-	"complete": "res://audio/complete.wav",
+	"complete": "res://audio/complete.mp3",
 
 	# Weather one-shots, fired at random intervals by the game.
 	"thunder_1": "res://audio/thunder_1.ogg",
@@ -74,7 +74,19 @@ var _amb_tw: Tween
 var _amb_path := ""
 
 
+func _music_tween() -> Tween:
+	# Music tweens must survive a paused tree. The shift-complete panel pauses
+	# the game, and a crossfade frozen mid-ramp leaves the incoming track stuck
+	# at partial volume for as long as the panel is up -- which is exactly the
+	# "first song of the shift is barely audible" bug.
+	var tw := create_tween()
+	tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	return tw
+
+
 func _ready() -> void:
+	# Audio keeps running while the game is paused.
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	# Preloaded up front: loading a stream on the frame it first plays causes a
 	# hitch, and the frames these fire on are the worst ones to hitch.
 	for key in SOUNDS:
@@ -125,6 +137,21 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
 
+# Per-cue level trim, applied on top of whatever a call site asks for.
+#
+# The cues came from different sources at wildly different levels: measured RMS
+# ran from -35 dBFS (pickup) to -18 (purchase, warn). Normalising the FILES
+# would be wrong -- a quiet pickup is deliberate, it fires constantly -- so the
+# mix is balanced here instead, where the intent is visible and tunable.
+const SFX_TRIM := {
+	"purchase": -7.0,
+	"package": -4.0,
+	"rot": -5.0,
+	"warn": -5.0,
+	"complete": -3.0,
+}
+
+
 func play(key: String, pitch: float = 1.0, volume_db: float = 0.0) -> void:
 	if not sfx_enabled or not _streams.has(key):
 		return
@@ -136,7 +163,7 @@ func play(key: String, pitch: float = 1.0, volume_db: float = 0.0) -> void:
 
 	p.stream = _streams[key]
 	p.pitch_scale = clampf(pitch, 0.4, 2.5)
-	p.volume_db = volume_db
+	p.volume_db = volume_db + float(SFX_TRIM.get(key, 0.0))
 	p.play()
 
 
@@ -184,7 +211,7 @@ func play_event(path: String, volume_db: float = -5.0, fade: float = 1.0) -> voi
 	_event.volume_db = volume_db - 20.0
 	_event.play()
 
-	_event_tw = create_tween()
+	_event_tw = _music_tween()
 	_event_tw.tween_property(_event, "volume_db", volume_db, fade)
 
 
@@ -192,7 +219,7 @@ func stop_event(fade: float = 1.4) -> void:
 	if not _event.playing:
 		return
 	_kill(_event_tw)
-	_event_tw = create_tween()
+	_event_tw = _music_tween()
 	_event_tw.tween_property(_event, "volume_db", _event_base_db - 30.0, fade)
 	_event_tw.tween_callback(_event.stop)
 
@@ -216,7 +243,7 @@ func play_ambience(path: String, volume_db: float = -8.0, fade: float = 1.2) -> 
 	_amb.volume_db = volume_db - 18.0
 	_amb.play()
 
-	_amb_tw = create_tween()
+	_amb_tw = _music_tween()
 	_amb_tw.tween_property(_amb, "volume_db", volume_db, fade)
 
 
@@ -225,7 +252,7 @@ func stop_ambience(fade: float = 1.6) -> void:
 		return
 	_kill(_amb_tw)
 	_amb_path = ""
-	_amb_tw = create_tween()
+	_amb_tw = _music_tween()
 	_amb_tw.tween_property(_amb, "volume_db", _amb_base_db - 30.0, fade)
 	_amb_tw.tween_callback(_amb.stop)
 
@@ -251,7 +278,17 @@ func play_playlist(paths, volume_db: float = -8.0) -> void:
 	# Consecutive shifts sharing a playlist shouldn't yank the music back to the
 	# top of the first track.
 	if list == _playlist and current_player().playing:
+		# ...but the NEW base has to reach the player that is already singing.
+		# Setting music_base_db alone left the live track at the previous
+		# shift's level until the next song began, which is why shift 3 opened
+		# barely audible and then corrected itself one track later.
+		# Restore the level whether or not the base changed: a transition can
+		# land mid-fade and leave the live track quiet.
 		music_base_db = volume_db
+		var quiet: bool = current_player().volume_db < music_base_db - 0.5
+		if quiet and not _crossfading:
+			var lvl_tw := _music_tween()
+			lvl_tw.tween_property(current_player(), "volume_db", music_base_db, 1.2)
 		return
 
 	# Fade the outgoing track down. _begin_track deliberately leaves this to its
@@ -261,7 +298,7 @@ func play_playlist(paths, volume_db: float = -8.0) -> void:
 	if outgoing.playing:
 		if _xfade_tw != null and _xfade_tw.is_valid():
 			_xfade_tw.kill()
-		var out_tw := create_tween()
+		var out_tw := _music_tween()
 		out_tw.tween_property(outgoing, "volume_db", music_base_db + MUSIC_SILENCE_DB, 0.6)
 		out_tw.tween_callback(outgoing.stop)
 
@@ -332,7 +369,7 @@ func _begin_track(idx: int, fade: float) -> void:
 	music_path = path
 	_crossfading = false
 
-	var tw := create_tween()
+	var tw := _music_tween()
 	tw.tween_property(p, "volume_db", music_base_db, fade)
 
 
@@ -386,7 +423,7 @@ func _equal_power_crossfade(out_p: AudioStreamPlayer, in_p: AudioStreamPlayer,
 	in_p.volume_db = music_base_db + MUSIC_SILENCE_DB
 
 	var base := music_base_db
-	_xfade_tw = create_tween()
+	_xfade_tw = _music_tween()
 	_xfade_tw.tween_method(
 		func(t: float):
 			out_p.volume_db = base + linear_to_db(maxf(cos(t * PI * 0.5), 0.0001))

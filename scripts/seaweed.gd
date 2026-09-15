@@ -10,8 +10,16 @@ extends Area2D
 # would wash itself into the shallows for free.
 
 const MAX_PILE := 8
-const ROT_WARN := 20.0     # starts browning
-const ROT_TIME := 32.0     # fully rotten: half value, 6x reputation damage
+const ROT_WARN := 8.0      # starts browning almost at once
+const ROT_TIME := 30.0     # fully rotten: half value, full reputation damage
+
+# A fully rotten pile speeds up rot on its neighbours. This is the whole point
+# of the rework: with a flat timer the optimal play is to vacuum whatever is
+# nearest, because order never matters. With spread, leaving one rotten pile in
+# a cluster turns the cluster, so clearing THAT pile first is worth more than
+# clearing a closer one -- a decision the player can see and act on.
+const ROT_SPREAD_RADIUS := 44.0
+const ROT_SPREAD_RATE := 1.6
 const ROT_COLOR := Color(0.45, 0.33, 0.14)
 
 var units := 1
@@ -41,6 +49,7 @@ var _timer := 0.0
 var _sway := 0.0
 var _anim_t := 0.0
 var _anim_frame := -1
+var _popping := false
 var _base_color := Color.WHITE
 var _player: Player = null
 var _size := 18.0
@@ -81,6 +90,22 @@ static func size_for_units(u: int) -> float:
 	return 48.0
 
 
+func _spread_factor() -> float:
+	# Rot accelerates near an already-rotten pile. Checked only once the clump
+	# has started browning, so a fresh drop is never instantly doomed.
+	if game == null or age < ROT_WARN or is_rotten():
+		return 1.0
+	for c in game.world.get_children():
+		if c == self or not (c is Seaweed):
+			continue
+		var o := c as Seaweed
+		if o.drifting or o.kelp or not o.is_rotten():
+			continue
+		if position.distance_to(o.position) < ROT_SPREAD_RADIUS:
+			return ROT_SPREAD_RATE
+	return 1.0
+
+
 func is_rotten() -> bool:
 	return age >= ROT_TIME
 
@@ -107,6 +132,30 @@ func absorb(n: int) -> void:
 	age = age * float(units) / float(total)
 	units = min(total, MAX_PILE)
 	_refresh()
+
+
+func _punch() -> void:
+	if _popping:
+		return
+	var tw := create_tween()
+	tw.tween_property(self, "scale", Vector2(1.18, 0.86), 0.05)
+	tw.tween_property(self, "scale", Vector2.ONE, 0.09).set_trans(Tween.TRANS_BACK)
+
+
+func _pop_and_free() -> void:
+	# Scale up and fade rather than blinking out. The pile is the thing the
+	# player is aiming at, so its removal is the moment worth selling.
+	if _popping:
+		return
+	_popping = true
+	set_process(false)
+	if _shape != null:
+		_shape.set_deferred("disabled", true)
+	var tw := create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(self, "scale", Vector2(1.5, 1.5), 0.16).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(self, "modulate:a", 0.0, 0.16)
+	tw.chain().tween_callback(queue_free)
 
 
 func _refresh() -> void:
@@ -237,7 +286,7 @@ func _process(delta: float) -> void:
 		# Rot speed scales with the shift: later shifts give you less grace before
 		# a pile starts costing reputation at 6x.
 		var rot_rate: float = float(game.rot_scale()) if game != null else 1.0
-		age += delta / rot_rate
+		age += delta * _spread_factor() / rot_rate
 		if age > ROT_WARN:
 			_apply_rot_tint()
 			if is_rotten() and not was_rotten and game != null:
@@ -308,6 +357,9 @@ func _do_gather(delta: float) -> void:
 			game.sfx("full")
 
 	if units <= 0:
-		queue_free()
+		_pop_and_free()
 	else:
+		# A small punch each time a unit comes off, so a big pile visibly
+		# reacts to every grab rather than only when it disappears.
 		_refresh()
+		_punch()

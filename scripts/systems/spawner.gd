@@ -77,14 +77,14 @@ func _tick_seaweed(delta: float) -> void:
 	_seaweed_t += delta
 	# Typed explicitly: `game` is untyped to avoid a circular class dependency,
 	# so dividing by game.difficulty() makes the whole expression untyped.
-	var interval: float = SEAWEED_INTERVAL * (0.35 if game.storm_active else 1.0) \
-		/ game.difficulty()
+	var storm_m: float = float(game.storm_mult()) if game.storm_active else 1.0
+	var interval: float = SEAWEED_INTERVAL * storm_m / float(game.difficulty())
 	if _seaweed_t < interval:
 		return
 	_seaweed_t = 0.0
 	if count_seaweed(false) >= SEAWEED_MAX:
 		return
-	spawn_seaweed(3 if game.storm_active else 1)
+	spawn_seaweed(int(game.storm_burst()) if game.storm_active else 1)
 
 
 func spawn_seaweed(units: int) -> void:

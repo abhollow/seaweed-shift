@@ -111,6 +111,7 @@ monitoring = false
 shape = SubResource("shape_gather")
 
 [node name="ReachVisual" type="ColorRect" parent="."]
+visible = false
 z_index = -1
 offset_left = -24.0
 offset_top = -24.0

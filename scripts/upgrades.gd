@@ -19,6 +19,16 @@ const TIER_NAMES := {
 	3: "TIER 3  --  DEEP WATER",
 }
 
+static func total_cost() -> int:
+	# Used by the smoke test to keep the economy solvable: the full kit must
+	# cost less than a complete run can earn, or the last upgrades are
+	# unreachable in normal play.
+	var t := 0
+	for up in LIST:
+		t += int(up["cost"])
+	return t
+
+
 const LIST := [
 	{
 		"id": "rake2",
@@ -88,7 +98,7 @@ const LIST := [
 		"id": "hopper",
 		"tier": 2,
 		"name": "Rear Hopper",
-		"cost": 2400,
+		"cost": 1900,
 		"desc": "Carry 100. Far fewer trips.",
 		"needs": "tractor",
 	},
@@ -96,7 +106,7 @@ const LIST := [
 		"id": "trawler",
 		"tier": 3,
 		"name": "Trawler Rig",
-		"cost": 4200,
+		"cost": 3100,
 		"desc": "Past the buoys. Deep kelp is worth 3x.",
 		"needs": "hopper",
 	},

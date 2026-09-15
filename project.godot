@@ -1,23 +1,14 @@
 ; Engine configuration file.
-; It's best edited using the editor UI and not directly,
-; since the parameters that go here are not all obvious.
-;
-; Format:
-;   [section] ; section goes between []
-;   param=value ; assign values to parameters
+; Beach Rake / "Seaweed Shift" prototype
 
 config_version=5
-
-[animation]
-
-compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 [application]
 
 config/name="Seaweed Shift"
 run/main_scene="res://scenes/menu.tscn"
 config/quit_on_go_back=false
-config/features=PackedStringArray("4.7", "GL Compatibility")
+config/features=PackedStringArray("4.3", "GL Compatibility")
 
 [display]
 
@@ -27,12 +18,16 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=1
 
+[audio]
+
+buses/default_bus_layout="res://default_bus_layout.tres"
+
 [input_devices]
 
 pointing/emulate_touch_from_mouse=true
 
 [rendering]
 
-textures/canvas_textures/default_texture_filter=0
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
+textures/canvas_textures/default_texture_filter=0

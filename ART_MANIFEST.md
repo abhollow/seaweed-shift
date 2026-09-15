@@ -434,6 +434,23 @@ via `FontVariation` in `ui_theme.gd`. That fakes weight on the fallback font, so
 buttons read heavier without bundling a bold cut of anything. Applied inside
 `UiTheme.button()`, so it covers every button in the game automatically.
 
+### Title wordmark
+
+`title_logo.png` (164x104, drawn at 2x) is a **baked graphic**, not live text:
+the seaweed drapes over and hangs off the letterforms, which no font can do.
+The subtitle stays live text -- small enough that baking it would cost sharpness
+for nothing, and easy to reword.
+
+**Keyed by tight colour match, not connectivity.** The counters of A, D, O and C
+are enclosed background and must drop out, and connectivity keying deliberately
+keeps enclosed regions. Safe here only because the artwork contains no pink.
+Sprites keep using connectivity keying; a logo is the exception, not a reason to
+change the rule.
+
+Do the colour maths in **float32**. Squared channel differences reach ~65000,
+which overflows int16 and wraps to small values, so white reads as "close to
+pink" and keys out -- the first attempt produced a logo full of holes.
+
 ### Title screen
 
 `assets/sprites/menu_background.png` is authored at **90×160** _(180×320 units)_ — exactly half

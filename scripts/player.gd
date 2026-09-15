@@ -19,6 +19,11 @@ const WALK_FPS := 9.0
 # the rake states need a wider box to hold the tool.
 const ART_SCALE := 2.0
 
+# Draws the gather area as a translucent box. A bring-up aid from before there
+# was art -- against finished sprites it reads as a rendering bug, so it is off
+# by default. Flip it in the inspector when tuning reach.
+@export var debug_reach := false
+
 # Rain jacket: the same walking art with its hi-vis recoloured, done in a shader
 # rather than as a second set of textures. Covers every on-foot state including
 # the wading poses, and any walking art added later gets it for free.
@@ -166,6 +171,7 @@ func set_body(hit: Vector2, art: Vector2, c: Color,
 	(_gather_shape.shape as RectangleShape2D).size = g
 	_gather_vis.size = g
 	_gather_vis.position = -g / 2.0
+	_gather_vis.visible = debug_reach
 
 
 func set_jacket(on: bool) -> void:

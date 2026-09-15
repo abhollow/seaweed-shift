@@ -229,8 +229,13 @@ func pause_visible() -> bool:
 
 
 func show_pause(v: bool) -> void:
-	if _pause_panel != null:
-		_pause_panel.visible = v
+	if _pause_panel == null:
+		return
+	if not v:
+		_pause_panel.visible = false
+		return
+
+	UiTheme.present(_pause_panel)
 
 
 # =============================================================================
@@ -289,6 +294,14 @@ func _refresh_meter(rep: Reputation) -> void:
 
 
 func _refresh_status(rep: Reputation, player: Player) -> void:
+	# The countdown outranks everything: if the shift is about to be lost, that
+	# is the only thing worth saying.
+	if rep.failing():
+		_lbl_status.text = "REPUTATION GONE -- FIRED IN %d" % ceili(rep.fail_countdown())
+		_lbl_status.add_theme_color_override("font_color", Color(0.98, 0.35, 0.32))
+		return
+	_lbl_status.add_theme_color_override("font_color", Color(1.0, 0.86, 0.55))
+
 	if player.in_safe_zone:
 		_lbl_status.text = "Loading bay -- safe"
 	elif game.happy_hour:

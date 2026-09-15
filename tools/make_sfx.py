@@ -2,7 +2,9 @@
 """
 Generates placeholder SFX for Seaweed Shift as 16-bit mono 22050 Hz WAVs.
 
-NOTE: pickup, dump, full, storm and happy hour are now real recordings in audio/.
+NOTE: almost everything is now a real recording in audio/. This script only
+still generates hit.wav -- the one cue kept as a synthesised tone, because it
+fires dozens of times a shift and anything with character in it grates.
 This script no longer generates those four -- rerunning it will not overwrite
 them. It only fills in the remaining placeholders.
 
@@ -104,12 +106,7 @@ print("Generating placeholder SFX...")
 # --- gathering --------------------------------------------------------------
 # --- money ------------------------------------------------------------------
 # Richer and longer than a sale -- buying gear should feel like an event.
-write("purchase.wav", mix(
-    arp([392, 523, 659, 784, 1046], 0.08, 0.5, 0.32),
-    tone(196, 0.45, "sine", 0.7, 0.22),
-))
 
-write("package.wav", arp([1046, 1318, 1568, 2093, 2637], 0.045, 0.22, 0.34, "sine"))
 
 # --- pain -------------------------------------------------------------------
 # The only genuinely bad thing in the game. Noise thud plus a falling tone so it
@@ -119,19 +116,10 @@ write("hit.wav", mix(
     tone(240, 0.38, "saw", 0.22, 0.4, sweep=70),
 ))
 
-write("rot.wav", mix(
-    noise(0.26, 0.2, 0.3, lowpass=0.82),
-    tone(180, 0.26, "saw", 0.25, 0.25, sweep=95),
-))
 
 # Low double pulse: reputation just crossed below target.
 
 # --- weather ----------------------------------------------------------------
 # --- shift end --------------------------------------------------------------
-write("complete.wav", mix(
-    seq(arp([523, 659, 784], 0.11, 0.4, 0.34),
-        tone(1046, 0.55, "square", 0.9, 0.4)),
-    tone(262, 0.9, "sine", 1.1, 0.22),
-))
 
 print(f"\nWrote {len(os.listdir(OUT))} files to {OUT}")

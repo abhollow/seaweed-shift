@@ -77,6 +77,22 @@ static func panel(p: PanelContainer) -> PanelContainer:
 	return p
 
 
+static func present(c: Control) -> void:
+	# Every panel in the game arrives the same way: springs up from slightly
+	# small and transparent. Pause-proof, because panels appear precisely when
+	# the tree is paused.
+	c.visible = true
+	c.pivot_offset = c.size / 2.0
+	c.scale = Vector2(0.86, 0.86)
+	c.modulate.a = 0.0
+	var tw := c.create_tween()
+	tw.set_parallel(true)
+	tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tw.tween_property(c, "scale", Vector2.ONE, 0.2) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(c, "modulate:a", 1.0, 0.15)
+
+
 static func outline(l: Label) -> Label:
 	# White on pale sand needs this as much as white on navy does.
 	l.add_theme_color_override("font_outline_color", OUTLINE)

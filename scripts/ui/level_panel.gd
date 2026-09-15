@@ -74,7 +74,7 @@ func show_failure() -> void:
 			game.credits_earned,
 		]
 	_button.text = "RETRY SHIFT"
-	visible = true
+	_present()
 
 
 func show_summary(is_last: bool) -> void:
@@ -82,12 +82,22 @@ func show_summary(is_last: bool) -> void:
 	_title.add_theme_color_override("font_color", UiTheme.ACCENT)
 	var lv: Dictionary = game.current_level()
 	_title.text = "SHIFT COMPLETE"
-	_body.text = "%s\n\n%d credits earned this shift\nReputation held at %d+ for %ds\n\n%d credits in the bank" % [
-		String(lv["name"]),
+
+	var mins := int(game.shift_elapsed) / 60
+	var secs := int(game.shift_elapsed) % 60
+	# "Closest call" is the stat worth reporting: it is the only one that says
+	# anything about HOW the shift went rather than that it ended.
+	_body.text = ("%s\n\nEarned this shift   %d cr\nIn the bank   %d cr\n"
+		+ "Shift time   %d:%02d\nClosest call   reputation %d") % [
+		String(lv["name"]).split("  --  ")[0],
 		game.credits_earned,
-		int(game.rep.target),
-		int(game.rep.held),
 		game.credits,
+		mins, secs,
+		int(game.best_rep),
 	]
 	_button.text = "KEEP PLAYING" if is_last else "NEXT SHIFT"
-	visible = true
+	_present()
+
+
+func _present() -> void:
+	UiTheme.present(self)

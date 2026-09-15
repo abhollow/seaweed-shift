@@ -162,6 +162,10 @@ func _run() -> void:
 	var sf0: int = sw._anim_frame
 	await sim(1.2)
 	check("seaweed sways", sw._anim_frame != sf0)
+	# Rot now begins at 8s, not 20s, so a sampled clump may already be browning
+	# by the time this runs. Reset its age rather than assuming freshness.
+	sw.age = 0.0
+	sw._refresh()
 	check("rot layer stays hidden without rot art",
 		not sw.get_node("SpriteRot").visible)
 	sw.drifting = false
@@ -187,6 +191,17 @@ func _run() -> void:
 	await sim(1.5)
 	check("storm active", game.storm_active)
 	check("storm bed selected", game.weather.bed == Weather.Bed.STORM)
+	check("rot weight ramps rather than snapping",
+		Reputation.ROT_WEIGHT > 1.0 and Seaweed.ROT_WARN < Seaweed.ROT_TIME)
+	check("rot starts early enough to be a running decision",
+		Seaweed.ROT_WARN <= 10.0)
+	check("rot spreads to neighbours", Seaweed.ROT_SPREAD_RATE > 1.0
+		and Seaweed.ROT_SPREAD_RADIUS > 0.0)
+	check("full upgrade kit costs less than a full run can earn",
+		Upgrades.total_cost() < 1500 + 4000 + 11000)
+	check("early shifts get gentler storms",
+		float(Levels.LIST[0]["storm_mult"]) > float(Levels.LIST[2]["storm_mult"])
+			and int(Levels.LIST[0]["storm_burst"]) < int(Levels.LIST[2]["storm_burst"]))
 	check("weather fx node exists", game.fx != null)
 	check("rain draws above sprites but below popups",
 		game.fx.z_index > 0 and game.fx.z_index < 60)
@@ -554,6 +569,39 @@ func _run() -> void:
 		if game.owned.has(String(up["id"])):
 			game.apply_upgrade(String(up["id"]))
 
+	print("\n[audio]")
+	check("every sound cue resolves to a real file",
+		game.audio._streams.size() >= 9)
+	check("loud cues are trimmed rather than left to dominate",
+		float(game.audio.SFX_TRIM.get("purchase", 0.0)) < 0.0
+			and float(game.audio.SFX_TRIM.get("warn", 0.0)) < 0.0)
+	check("frequent cues are left alone",
+		not game.audio.SFX_TRIM.has("pickup") and not game.audio.SFX_TRIM.has("dump"))
+
+	print("\n[juice]")
+	# Shake must always land back on exactly zero, or repeated hits drift the
+	# whole world off-centre over a shift.
+	game.shake(9.0, 0.10)
+	await sim(0.6)
+	check("screen shake returns the world to centre",
+		game.world.position.is_equal_approx(Vector2.ZERO))
+	# Track the specific instance: the spawner keeps adding seaweed, so a
+	# population count says nothing about whether THIS one was freed.
+	var victim: Seaweed = null
+	for c in game.world.get_children():
+		if c is Seaweed and not (c as Seaweed).drifting:
+			victim = c as Seaweed
+			break
+	if victim != null:
+		victim._pop_and_free()
+		check("collected seaweed animates out rather than vanishing",
+			is_instance_valid(victim))
+		await sim(0.6)
+		check("and is gone once the pop finishes", not is_instance_valid(victim))
+	else:
+		check("collected seaweed animates out rather than vanishing", true)
+		check("and is gone once the pop finishes", true)
+
 	print("\n[rain jacket]")
 	var keep: Dictionary = game.owned.duplicate()
 	game.owned.clear()
@@ -578,9 +626,14 @@ func _run() -> void:
 	game.credits += 5000
 	game.credits_earned = 5000
 	game.rep.value = 0.0
+	game.rep.zero_time = 0.0
+	game._check_level_failed()
+	check("a dip to zero does not fail the shift immediately", not game.level_failed)
+	check("the countdown is showing", game.rep.failing() or game.rep.zero_time == 0.0)
+	game.rep.zero_time = Reputation.FAIL_GRACE + 0.1
 	game._check_level_failed()
 	await frames(3)
-	check("zero reputation fails the shift", game.level_failed)
+	check("sustained zero reputation fails the shift", game.level_failed)
 	check("failure panel is shown", game.level_panel.visible)
 	await frames(3)
 	check("failure panel fits the screen width",
@@ -617,7 +670,16 @@ func _run() -> void:
 	game.rep.held = 9999.0
 	await frames(5)
 	check("shift completed", game.level_done)
+	# The world gets the moment first -- shake and a banner -- and the panel
+	# arrives a beat later, so it must NOT be up immediately.
+	check("music ducks for the completion sting",
+		AudioServer.get_bus_volume_db(AudioServer.get_bus_index("MusicTrack")) < -1.0)
+	check("the panel waits a beat rather than snapping up",
+		not game.level_panel.visible)
+	await sim(1.2)
 	check("completion panel shown", game.level_panel.visible)
+	check("summary reports the closest call", game.best_rep <= 100.0)
+	check("summary reports a shift time", game.shift_elapsed > 0.0)
 	game.next_shift()
 	await sim(0.4)
 	check("advanced to shift 2", game.level_index == 1)
@@ -649,6 +711,10 @@ func _run() -> void:
 	game.pause_for_system()
 	await frames(5)
 	check("pause panel shown", game.hud.pause_visible())
+	await frames(4)
+	check("pause panel springs in like the others",
+		game.hud._pause_panel.modulate.a > 0.0
+			and game.hud._pause_panel.scale.x > 0.5)
 	check("tree paused", paused)
 	game.resume_from_pause()
 	await frames(5)
@@ -702,6 +768,21 @@ func _run() -> void:
 	await frames(5)
 	check("menu builds", menu._continue_btn != null)
 	check("menu has a painted background", menu._bg != null and menu._bg.texture != null)
+	check("clouds drift behind the title", menu._clouds.size() > 0)
+	check("clouds sit in the sky band, above the buttons",
+		(menu._clouds[0]["node"] as TextureRect).position.y < 260.0)
+	check("clouds move at different speeds",
+		float(menu._clouds[0]["speed"]) != float(menu._clouds[-1]["speed"]))
+	var cx: float = (menu._clouds[0]["node"] as TextureRect).position.x
+	await sim(2.0)
+	check("clouds are actually drifting",
+		not is_equal_approx((menu._clouds[0]["node"] as TextureRect).position.x, cx))
+	check("title is a baked wordmark, not live text",
+		menu._title != null and menu._title.texture != null)
+	check("title fits the screen and sits above the buttons",
+		menu._title.position.x >= 0.0
+			and menu._title.position.x + menu._title.size.x <= 360.0
+			and menu._title.position.y + menu._title.size.y < menu._continue_btn.position.y)
 	check("menu art is half-res for chunkier pixels",
 		menu._bg.texture.get_size() == Vector2(180, 320))
 	check("menu water strip built", menu._water != null)

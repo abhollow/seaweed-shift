@@ -7,9 +7,15 @@ extends Node
 
 # --- tuning -----------------------------------------------------------------
 const MESS_FULL := 28.0        # weighted units that drag reputation to 1
-const ROT_WEIGHT := 6.0        # a rotten unit counts as six fresh ones
+const ROT_WEIGHT := 6.0        # a fully rotten unit counts as six fresh ones
 const REP_FALL := 22.0         # points/sec the meter drops when the beach is dirty
 const REP_RISE := 8.0          # points/sec it recovers -- deliberately slower
+
+# Reputation must sit on the floor for this long before the shift is lost.
+# Without it, one storm surge ends a run instantly and the player never gets a
+# chance to respond -- which reads as unfair rather than hard.
+const FAIL_GRACE := 9.0
+const FAIL_FLOOR := 0.5
 const REP_GOOD := 70.0         # default target if a shift doesn't name one
 # ----------------------------------------------------------------------------
 
@@ -19,6 +25,7 @@ var value := 100.0
 var held := 0.0                # seconds continuously at or above target
 var target := REP_GOOD
 var rotten_piles := 0
+var zero_time := 0.0
 
 var _was_good := true
 
@@ -41,6 +48,13 @@ func tick(delta: float) -> void:
 	var rate := REP_FALL if goal < value else REP_RISE
 	value = move_toward(value, goal, rate * delta)
 
+	# Time spent on the floor. Reset the moment the meter lifts at all, so any
+	# progress at clearing the beach buys the player their run back.
+	if value <= FAIL_FLOOR:
+		zero_time += delta
+	else:
+		zero_time = 0.0
+
 	var good := value >= target
 	if good:
 		held += delta
@@ -54,6 +68,14 @@ func tick(delta: float) -> void:
 	_was_good = good
 
 
+func failing() -> bool:
+	return zero_time > 0.0
+
+
+func fail_countdown() -> float:
+	return maxf(0.0, FAIL_GRACE - zero_time)
+
+
 func shore_mess() -> float:
 	# Only seaweed actually sitting on the shoreline counts against you. Clumps
 	# still drifting are the ocean's problem, and kelp is out of sight.
@@ -65,9 +87,11 @@ func shore_mess() -> float:
 		var sw := c as Seaweed
 		if sw.kelp or sw.drifting:
 			continue
+		# Weight RAMPS with rot rather than snapping from 1x to 6x at a
+		# threshold. A browning pile is a small, growing problem you can see
+		# coming, so triage is a running decision instead of a cliff.
+		var w := 1.0 + (ROT_WEIGHT - 1.0) * sw.rot_progress()
+		mess += float(sw.units) * w
 		if sw.is_rotten():
-			mess += float(sw.units) * ROT_WEIGHT
 			rotten_piles += 1
-		else:
-			mess += float(sw.units)
 	return mess

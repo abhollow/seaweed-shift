@@ -11,6 +11,11 @@ const MAIN_SCENE := "res://scenes/main.tscn"
 # the title screen reads chunkier than the game itself.
 const BACKGROUND := preload("res://assets/sprites/menu_background.png")
 
+# Baked wordmark rather than live text: the seaweed has to interact with the
+# letterforms, which no font can do. Authored at half density like the rest of
+# the art and drawn at 2x.
+const TITLE := preload("res://assets/sprites/title_logo.png")
+
 const WATER_FRAMES: Array[Texture2D] = [
 	preload("res://assets/sprites/menu_water_00.png"),
 	preload("res://assets/sprites/menu_water_01.png"),
@@ -23,6 +28,18 @@ const WATER_FRAMES: Array[Texture2D] = [
 ]
 const WATER_TOP := 392.0       # in 360x640 screen space (196 art px x2)
 const WATER_FPS := 6.0
+
+# Drifting clouds. The surf already moves; without these the sky was the one
+# dead area of the screen, and it is the area the eye rests on while reading
+# the title.
+#
+# Each cloud gets its own speed and scale, so they separate into layers as they
+# travel -- a single shared speed reads as one sheet of wallpaper sliding past.
+# Slow: the fastest crosses the screen in about a minute.
+const CLOUD_BAND_TOP := 30.0
+const CLOUD_BAND_BOTTOM := 250.0
+const CLOUD_SPEED_MIN := 3.0
+const CLOUD_SPEED_MAX := 9.0
 const MENU_MUSIC := "res://audio/8-bit_Sunset.mp3"
 const MENU_MUSIC_DB := -8.0
 const FADE_OUT := 0.35
@@ -35,9 +52,11 @@ var _new_armed := false
 var _reset_armed := false
 var _music: AudioStreamPlayer
 var _bg: TextureRect
+var _title: TextureRect
 var _water: TextureRect
 var _water_t := 0.0
 var _water_frame := -1
+var _clouds: Array = []
 
 
 func _ready() -> void:
@@ -61,6 +80,8 @@ func _build() -> void:
 	_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_bg)
 
+	_build_clouds()
+
 	# Same trick as the beach: a strip of pre-displaced frames laid over the
 	# background's own water, so only the surf moves and the resort stays put.
 	_water = TextureRect.new()
@@ -83,11 +104,19 @@ func _build() -> void:
 
 	# Title at the top, buttons at the bottom, so the resort and beach in the
 	# middle stay unobstructed -- the art is the reason to look at this screen.
-	var title := _text("SEAWEED SHIFT", Vector2(0, 34), 34, Color(1, 1, 1))
-	title.add_theme_font_override("font", UiTheme.TITLE_FONT)
-	title.add_theme_constant_override("outline_size", 9)
+	_title = TextureRect.new()
+	_title.texture = TITLE
+	_title.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_title.stretch_mode = TextureRect.STRETCH_SCALE
+	_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tw := TITLE.get_width() * 2.0
+	var th := TITLE.get_height() * 2.0
+	_title.position = Vector2((360.0 - tw) / 2.0, 26)
+	_title.size = Vector2(tw, th)
+	add_child(_title)
 
-	_text("beach maintenance, hourly", Vector2(0, 84), 13, Color(0.88, 0.93, 0.95))
+	# No subtitle: the wordmark says enough, and a line of small text under a
+	# heavy three-line logo just crowded it.
 
 	var save := SaveGame.load_data()
 	var has_save: bool = not save.is_empty()
@@ -138,7 +167,53 @@ func _continue_label(save: Dictionary) -> String:
 	return "CONTINUE  --  Shift %d, %d cr" % [shift, int(save.get("credits", 0))]
 
 
+func _build_clouds() -> void:
+	# Loaded by scanning the sprites folder so adding or removing a cloud file
+	# needs no code change.
+	var frames: Array[Texture2D] = []
+	for i in 8:
+		var path := "res://assets/sprites/cloud_%02d.png" % i
+		if ResourceLoader.exists(path):
+			frames.append(load(path))
+	if frames.is_empty():
+		return
+
+	for i in frames.size() * 2:
+		var tex: Texture2D = frames[i % frames.size()]
+		var spr := TextureRect.new()
+		spr.texture = tex
+		spr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		spr.stretch_mode = TextureRect.STRETCH_SCALE
+		spr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+		# Bigger clouds drift faster, which is the wrong way round for real
+		# parallax but reads better here: the big ones are the ones you notice
+		# moving, and the small ones hang back as depth.
+		var scale := randf_range(1.4, 2.6)
+		var speed := lerpf(CLOUD_SPEED_MIN, CLOUD_SPEED_MAX,
+			(scale - 1.4) / 1.2)
+		spr.size = tex.get_size() * scale
+		spr.position = Vector2(
+			randf_range(-spr.size.x, 360.0),
+			randf_range(CLOUD_BAND_TOP, CLOUD_BAND_BOTTOM - spr.size.y))
+		spr.modulate.a = randf_range(0.55, 0.9)
+		add_child(spr)
+		_clouds.append({"node": spr, "speed": speed})
+
+
+func _drift_clouds(delta: float) -> void:
+	for c in _clouds:
+		var n: TextureRect = c["node"]
+		n.position.x += float(c["speed"]) * delta
+		if n.position.x > 360.0:
+			# Re-enters from the left at a fresh height, so the sky never
+			# settles into a repeating pattern.
+			n.position.x = -n.size.x
+			n.position.y = randf_range(CLOUD_BAND_TOP, CLOUD_BAND_BOTTOM - n.size.y)
+
+
 func _process(delta: float) -> void:
+	_drift_clouds(delta)
 	if _water == null:
 		return
 	_water_t += delta * WATER_FPS

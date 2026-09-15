@@ -25,6 +25,11 @@ const LIST := [
 		"hold": 90.0,
 		"difficulty": 1.0,
 		"rot_scale": 1.0,
+		# Storm spawn interval multiplier and units per spawn. On foot with no
+		# upgrades a full-strength storm produces ~18x what the player can
+		# clear, which is not a difficulty curve, it is a wall.
+		"storm_mult": 0.70,
+		"storm_burst": 1,
 		# First entry always opens the shift; the rest are shuffled.
 		"music": [
 			"res://audio/Pixel_Paradise_2.mp3",
@@ -42,6 +47,8 @@ const LIST := [
 		# faster or the shift plays exactly like shift 1 with bigger numbers.
 		"difficulty": 1.5,
 		"rot_scale": 0.8,
+		"storm_mult": 0.50,
+		"storm_burst": 2,
 		# First entry always opens the shift; the rest are shuffled.
 		"music": [
 			"res://audio/Pixel_Paradise_2.mp3",
@@ -52,11 +59,13 @@ const LIST := [
 	},
 	{
 		"name": "SHIFT 3  --  High Season",
-		"credits": 9000,
+		"credits": 11000,
 		"rep": 80.0,
 		"hold": 150.0,
 		"difficulty": 2.1,
 		"rot_scale": 0.62,
+		"storm_mult": 0.35,
+		"storm_burst": 3,
 		# First entry always opens the shift; the rest are shuffled.
 		"music": [
 			"res://audio/Pixel_Paradise_2.mp3",

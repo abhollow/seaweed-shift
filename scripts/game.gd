@@ -64,6 +64,8 @@ var owned := {}
 
 var level_index := 0
 var credits_earned := 0        # this shift only; spending never sets it back
+var shift_elapsed := 0.0       # seconds of play in the current shift
+var best_rep := 100.0          # lowest the meter fell to -- how close it got
 var level_done := false
 var level_failed := false
 var free_play := false
@@ -105,6 +107,7 @@ var _grade_exposure := 0.0
 var fx: WeatherFx
 var _water_t := 0.0
 var _water_frame := -1
+var _shake_tw: Tween
 
 
 func _ready() -> void:
@@ -133,6 +136,8 @@ func _process(delta: float) -> void:
 	weather.tick(delta)
 	rep.tick(delta)
 	_tick_water(delta)
+	shift_elapsed += delta
+	best_rep = minf(best_rep, rep.value)
 	_check_level_failed()
 	_check_level_complete()
 	hud.refresh()
@@ -396,6 +401,14 @@ func difficulty() -> float:
 	return maxf(0.1, float(lv.get("difficulty", 1.0)))
 
 
+func storm_mult() -> float:
+	return maxf(0.2, float(current_level().get("storm_mult", 0.35)))
+
+
+func storm_burst() -> int:
+	return maxi(1, int(current_level().get("storm_burst", 3)))
+
+
 func rot_scale() -> float:
 	return maxf(0.2, float(current_level().get("rot_scale", 1.0)))
 
@@ -416,6 +429,8 @@ func begin_level() -> void:
 	}
 
 	credits_earned = 0
+	shift_elapsed = 0.0
+	best_rep = 100.0
 	level_done = false
 	level_failed = false
 	rep.reset(float(lv["rep"]))
@@ -455,7 +470,9 @@ func begin_level() -> void:
 func _check_level_failed() -> void:
 	if level_done or level_failed or free_play:
 		return
-	if rep.value > 0.5:
+	# A dip to zero starts a countdown rather than ending the run. One storm
+	# surge should be survivable if the player reacts.
+	if rep.zero_time < Reputation.FAIL_GRACE:
 		return
 	fail_shift()
 
@@ -470,6 +487,8 @@ func fail_shift() -> void:
 
 
 func retry_shift() -> void:
+	if audio != null:
+		audio.restore_music_level(0.8)
 	# Roll all the way back to how the shift started. Credits earned and any
 	# upgrades bought during the failed attempt are gone.
 	credits = int(_shift_start.get("credits", 0))
@@ -521,13 +540,29 @@ func finish_level() -> void:
 	level_done = true
 	joystick.active = false
 	shop.visible = false
-	get_tree().paused = true
 	_save_progress()
-	level_panel.show_summary(level_index + 1 >= Levels.LIST.size())
 	sfx("complete")
+	# The completion sting is a 15s celebration piece, not a short cue, so the
+	# music has to get out of its way or the two fight for the whole panel.
+	if audio != null:
+		audio.duck_music(-24.0, 0.5)
+
+	# Let the moment land in the WORLD before the UI covers it: a punch of
+	# shake and a banner over the beach, then the panel a beat later. Showing
+	# the panel instantly makes finishing a shift feel like a form submission.
+	shake(6.0, 0.4)
+	popup("SHIFT COMPLETE", Vector2(180, 300), Color(1.0, 0.92, 0.55))
+	var t := get_tree().create_timer(0.85, true, false, true)
+	t.timeout.connect(func():
+		if not level_done:
+			return
+		get_tree().paused = true
+		level_panel.show_summary(level_index + 1 >= Levels.LIST.size()))
 
 
 func next_shift() -> void:
+	if audio != null:
+		audio.restore_music_level(0.8)
 	level_panel.visible = false
 	get_tree().paused = false
 	joystick.active = true
@@ -551,6 +586,8 @@ func toggle_shop() -> void:
 		return
 	var opening := not shop.visible
 	shop.visible = opening
+	if opening:
+		UiTheme.present(shop)
 	joystick.active = not opening
 	get_tree().paused = opening
 	if opening:
@@ -727,7 +764,7 @@ func _on_bay_entered(body: Node2D) -> void:
 	var earned := p.dump()
 	add_credits(earned)
 	popup("+%d cr" % earned, Zones.BAY_POS + Vector2(-16, -46), Color(1.0, 0.95, 0.5))
-	shake(4.0)
+	shake(2.5, 0.16)
 	# Bigger hauls sell higher and louder. Pitch range kept modest -- the dump
 	# sample is a full phrase, and stretching it far reads as a glitch.
 	sfx("dump", clampf(0.94 + float(earned) / 1400.0, 0.94, 1.25))
@@ -739,15 +776,16 @@ func _on_bay_exited(body: Node2D) -> void:
 
 
 func on_player_hit(lost_units: int, lost_value: int, at: Vector2) -> void:
-	shake(11.0)
 	if lost_units <= 0:
 		sfx("hit", 1.25, -6.0)
 		popup("OOF", at, Color(1.0, 0.5, 0.5))
+		shake(4.0, 0.22)
 		return
 	sfx("hit")
 	# Gone for good. Nothing scatters back onto the sand -- the load is simply
 	# destroyed, so a collision costs you the round trip as well as the haul.
 	popup("LOAD LOST", at, Color(1.0, 0.42, 0.42))
+	shake(7.0, 0.34)
 	popup("-%d cr" % lost_value, at + Vector2(0, 22), Color(1.0, 0.62, 0.55))
 
 
@@ -831,6 +869,24 @@ func sfx(key: String, pitch: float = 1.0, volume_db: float = 0.0) -> void:
 		audio.play(key, pitch, volume_db)
 
 
+func shake(strength: float = 5.0, time: float = 0.28) -> void:
+	# Offsets the world node rather than a camera -- there is no Camera2D, the
+	# view is fixed. Always returns to exactly zero so repeated shakes cannot
+	# drift the whole scene off-centre.
+	if world == null:
+		return
+	if _shake_tw != null and _shake_tw.is_valid():
+		_shake_tw.kill()
+	_shake_tw = create_tween()
+	var steps := 6
+	for i in steps:
+		var fall := strength * (1.0 - float(i) / float(steps))
+		_shake_tw.tween_property(world, "position",
+			Vector2(randf_range(-fall, fall), randf_range(-fall, fall)),
+			time / float(steps))
+	_shake_tw.tween_property(world, "position", Vector2.ZERO, time / float(steps))
+
+
 func popup(text: String, pos: Vector2, color: Color) -> void:
 	var l := Label.new()
 	l.text = text
@@ -847,13 +903,6 @@ func popup(text: String, pos: Vector2, color: Color) -> void:
 	tw.tween_property(l, "position:y", l.position.y - 28.0, 0.65)
 	tw.tween_property(l, "modulate:a", 0.0, 0.65)
 	tw.chain().tween_callback(l.queue_free)
-
-
-func shake(amount: float) -> void:
-	var tw := create_tween()
-	tw.tween_property(world, "position", Vector2(amount, -amount * 0.5), 0.04)
-	tw.tween_property(world, "position", Vector2(-amount * 0.7, amount * 0.4), 0.04)
-	tw.tween_property(world, "position", Vector2.ZERO, 0.06)
 
 
 func grade(saturation: float, exposure: float, time: float = 1.0) -> void:
