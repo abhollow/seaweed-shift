@@ -15,7 +15,13 @@ config/features=PackedStringArray("4.3", "GL Compatibility")
 window/size/viewport_width=360
 window/size/viewport_height=640
 window/stretch/mode="canvas_items"
-window/stretch/aspect="expand"
+# "keep", not "expand". The whole game is built around an exact 360x640 canvas:
+# zone boundaries at y=190/420/530, a HUD strip pinned to y=598, a water strip
+# at y=392. "expand" hands a tall phone a 360x800 viewport, so every one of
+# those numbers points at the wrong place -- the menu water strip landed on top
+# of the resort, and the beach background stopped 160px short of the bottom.
+# "keep" letterboxes instead, which preserves the design exactly.
+window/stretch/aspect="keep"
 window/handheld/orientation=1
 
 [audio]

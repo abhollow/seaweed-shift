@@ -111,6 +111,26 @@ func spawn_seaweed(units: int) -> void:
 	_add_seaweed(pos, units, false, drifts)
 
 
+func scatter(units: int, at: Vector2) -> void:
+	# Dropped load from a collision. Bursts outward as several small clumps
+	# rather than vanishing, so a hit costs you the WORK of re-gathering
+	# instead of just deleting the problem -- skimming tourists to clear the
+	# beach for free was the exploit this closes.
+	if units <= 0:
+		return
+	var left := units
+	while left > 0:
+		var chunk: int = mini(left, randi_range(1, 3))
+		left -= chunk
+		var a := randf() * TAU
+		var d := randf_range(16.0, 46.0)
+		var pos := at + Vector2(cos(a), sin(a) * 0.65) * d
+		# Keep the debris on playable sand, never in the resort or off-screen.
+		pos.x = clampf(pos.x, 16.0, Zones.VIEW_W - 16.0)
+		pos.y = clampf(pos.y, Zones.HOTEL_BOTTOM + 14.0, Zones.SHALLOW_TOP - 10.0)
+		_add_seaweed(pos, chunk, false, false)
+
+
 func _tick_kelp(delta: float) -> void:
 	# Deep kelp only bothers to grow once you can actually reach it.
 	if not game.player.can_enter_deep:

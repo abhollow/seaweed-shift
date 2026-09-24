@@ -74,4 +74,24 @@ const LIST := [
 			"res://audio/Pixel_Paradise_4.mp3",
 		],
 	},
+	{
+		# The payoff shift. The full kit is affordable within shift 3, so this
+		# one is played entirely with everything unlocked -- deep water, kelp,
+		# the loaded hopper. It exists because the most rewarding part of the
+		# game was arriving just as the credits rolled.
+		"name": "SHIFT 4  --  Peak Season",
+		"credits": 14000,
+		"rep": 80.0,
+		"hold": 150.0,
+		"difficulty": 2.4,
+		"rot_scale": 0.58,
+		"storm_mult": 0.33,
+		"storm_burst": 3,
+		"music": [
+			"res://audio/Pixel_Paradise_2.mp3",
+			"res://audio/Pixel_Paradise_3.mp3",
+			"res://audio/Island_Bit_Reggae.mp3",
+			"res://audio/Pixel_Paradise_4.mp3",
+		],
+	},
 ]

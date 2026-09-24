@@ -1,62 +1,89 @@
-# Planned: Days as the outer loop
+# Planned: Levels as the outer loop
 
-**Status: agreed in principle, not scheduled. Nothing below is built.**
+**Status: agreed in principle, not built.** Shift 4 exists; everything else below
+is design.
 
-## The shape
+## The loop
 
-The three shifts become **Day 1**. Finishing shift 3 rolls over to **Day 2** — a
-fresh set of three shifts with a new background, music that did not play on Day 1,
-and **all upgrades stripped**.
+A **level** is a set of four shifts on one beach. Finishing shift 4 ends the
+level:
 
-The stated intent matters more than the mechanic: it should read as *a new level
-with new challenges*, not as losing everything you earned. That framing is the
-design constraint, and it is the thing most likely to be got wrong.
+1. The player **chooses one tier-1 upgrade to retain permanently.**
+2. The next level begins on a **new beach** — new backdrop, new music, a new
+   weather event, a new personality.
+3. All other upgrades reset. Retained ones carry forward.
+4. Every shift in the new level is harder than its counterpart in the last.
 
-## Why it needs compensating structure
+Repeat. Collecting retained skills across levels is the long-term goal.
 
-Stripping upgrades is a strong move and it cuts both ways. On the good side it
-resets the difficulty curve, makes tier-1 gear meaningful again, and gives each
-day a clean arc. On the bad side, a player who has just spent three shifts
-building a tractor will read a silent wipe as punishment however it is framed.
+## Why the retained skill matters
 
-So a day rollover probably needs **at least one of**:
+An earlier version of this plan flagged the real risk of a reset: a player who
+spent four shifts building a tractor reads a silent wipe as punishment, however
+it is framed. It proposed "something carried forward that is visibly not gear"
+but never landed on what.
 
-- Something carried forward that is visibly not gear — a title, a tally, a
-  cosmetic, a permanent small bonus.
-- A new mechanic introduced on Day 2 that the old gear could not have solved, so
-  the reset reads as "different problem" rather than "same problem, worse tools".
-- A narrative reason stated plainly on the rollover screen. The FIRED panel
-  taught us that saying *why* defuses a lot: a wipe with a stated reason lands
-  very differently from a wipe without one.
+**The retained skill is that answer, and it is better than the options
+considered.** It turns the reset into a choice the player *earned* rather than a
+loss they suffered. And it compounds: by level 3 the player starts with two tier-1
+upgrades already owned, so the early game of each new level gets faster to clear
+— which gives room for that level's new challenge to be the focus.
 
-Day 2's unique challenges are undecided. That decision should come **before**
-implementation, because it determines whether the reset feels earned.
+**Limit it to tier 1.** Retaining a tractor or trawler would let a player skip
+the entire tier-2 arc and flatten the difficulty curve every later level depends
+on. Tier 1 (rake, jacket, backpack, waders) is exactly the grind worth removing.
+Four tier-1 upgrades means four levels before the pool is exhausted — a natural
+length for the campaign, after which the choice could widen or become cosmetic.
 
-## What the current code assumes, and would need changing
+## Each level needs a personality
 
-Worth knowing now so we stop hard-coding these:
+Per the playtest: a new level must feel different, not just harder. Minimum per
+level:
 
-- `Levels.LIST` is a **flat array of three**, and `level_index` walks it. Days
-  would make this a list of lists, or add a `day` field and a lookup.
-- `free_play` triggers after the last entry in that flat list. It would have to
-  mean "after the last day", not "after shift 3".
-- The save stores `level_index` and `owned`. It would need a `day` too, and the
-  rollover would have to clear `owned` while preserving whatever carries forward.
-- `_shift_start` (the failure-retry snapshot) is per shift. A day rollover must
-  not let a failed shift 1 of Day 2 restore Day 1's gear.
-- `Game.difficulty()` and `rot_scale()` read from the current level. Day 2's
-  curve would presumably restart lower but sit above Day 1's — those numbers are
-  a tuning question, not a structural one.
-- Music is per level via `lv.get("music")`, so a per-day playlist already fits.
-  The playlist-swap bug (new track starting over the old) is fixed, which this
-  would have hit hard.
-- Backgrounds are per level only in the sense that `main.tscn` holds one. A
-  second day needs the background and its water frames swappable at runtime, not
-  baked into the scene.
+- **Backdrop** — a different beach. The pipeline for this is proven: generate,
+  measure the bands, remap onto the zone boundaries, rebuild the water frames.
+- **Music** — tracks that did not play in earlier levels.
+- **A signature weather event** — one new event introduced per level, joining
+  storms and Happy Hour rather than replacing them. Candidates below.
+- **A rule twist** — optional, but the strongest lever for "different". Examples:
+  kelp worth more, tourists who throw litter, a tide that moves the waterline.
 
-## Sequencing suggestion
+## Candidate events
 
-Decide Day 2's distinct challenge first. Then the structural work (days, save,
-rollover screen) is straightforward and testable; the art and music are a known
-pipeline. Doing it in the other order risks building the plumbing around a
-mechanic that turns out not to fit.
+Kept deliberately calm to match the relaxed-but-rewarding tone. The failure mode
+to avoid is anything that tests reaction speed — frantic is the wrong direction.
+
+- **Low tide.** The waterline recedes, exposing a wide band of stranded seaweed
+  and briefly making deep water reachable without the trawler. Opportunity rather
+  than threat: a burst of easy value if you get there in time.
+- **Red tide.** An algae bloom tints the sea and speeds up rot everywhere. A
+  pure prioritisation event — it rewards exactly the triage that rot spread was
+  built to encourage.
+- **Night shift.** Visibility narrows to a circle around the player. Quiet and
+  atmospheric; changes how the beach is read rather than how fast it fills.
+- **Cruise ship.** A wave of tourists disembarks in one direction, crossing the
+  beach as a group. Readable and avoidable, unlike Happy Hour's scatter.
+
+## What the code currently assumes
+
+- `Levels.LIST` is a flat array (now four shifts). Levels need a list of lists,
+  or a `level` field and a lookup.
+- `free_play` triggers after the last entry. It should mean "after the last
+  level", or disappear entirely if the campaign is open-ended.
+- The save stores `level_index`, `owned` and `credits`. It needs a `level`, a
+  `retained` set, and a rollover that clears `owned` except `retained`.
+- **`_shift_start` (the failure snapshot) must never restore across a level
+  boundary.** A failed shift 1 of level 2 must not bring back level 1's gear.
+  This is the bug most likely to ship if nobody is looking for it.
+- `Game.difficulty()` reads the current shift, ramped by progress. A level
+  multiplier would sit on top of it.
+- Backgrounds are baked into `main.tscn`; a second beach needs the background and
+  its water frames swappable at runtime.
+
+## Sequencing
+
+1. Build the rollover and the retain-a-skill screen against the **existing**
+   beach. It is the structural piece and it is testable without new art.
+2. Then level 2's backdrop, music and first new event.
+3. Tune the level multiplier by playing, not by estimate — shift 1 on foot is the
+   calibration point the player has confirmed feels right.

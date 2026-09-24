@@ -87,10 +87,11 @@ func show_summary(is_last: bool) -> void:
 	var secs := int(game.shift_elapsed) % 60
 	# "Closest call" is the stat worth reporting: it is the only one that says
 	# anything about HOW the shift went rather than that it ended.
-	_body.text = ("%s\n\nEarned this shift   %d cr\nIn the bank   %d cr\n"
-		+ "Shift time   %d:%02d\nClosest call   reputation %d") % [
+	_body.text = ("%s\n\nEarned this shift   %d cr\nResort bonus   +%d cr\n"
+		+ "In the bank   %d cr\n\nShift time   %d:%02d\nClosest call   reputation %d") % [
 		String(lv["name"]).split("  --  ")[0],
 		game.credits_earned,
+		game.shift_bonus,
 		game.credits,
 		mins, secs,
 		int(game.best_rep),

@@ -32,7 +32,10 @@ const TOURIST_DESPAWN_Y := 180.0
 # The loading bay straddles the hotel/beach boundary on the right edge. It is
 # also the only safe square on the map.
 const BAY_POS := Vector2(311, 156)
-const BAY_SIZE := Vector2(96, 112)
+# Tightened from 96x112. The old zone reached far enough left and down that a
+# load could be banked from open sand near the palms, nowhere near the skip --
+# the safe zone should be the bay, not its postcode.
+const BAY_SIZE := Vector2(62, 74)
 # Half the original size. The background art already reads as a service bay, so
 # the skip only needs to mark the exact drop point, not dominate the corner.
 const BIN_SIZE := Vector2(28, 32)

@@ -126,6 +126,28 @@ func _run() -> void:
 	check("player starts safe", game.player.in_safe_zone)
 	check("shift 1 selected", game.level_index == 0)
 	check("shift progress bar exists", game.hud._goal_bg != null)
+	# Pressure ramps with progress, so upgrades cannot outpace the beach.
+	var saved_earned: int = game.credits_earned
+	game.credits_earned = 0
+	var d_start: float = game.difficulty()
+	game.credits_earned = int(game.current_level()["credits"])
+	var d_end: float = game.difficulty()
+	game.credits_earned = saved_earned
+	check("the beach gets busier as the shift progresses", d_end > d_start * 1.5)
+
+	# Playing well pays more than scraping through.
+	var saved_best: float = game.best_rep
+	game.best_rep = 100.0
+	var perfect: int = game.reputation_bonus()
+	game.best_rep = 0.0
+	var scraped: int = game.reputation_bonus()
+	game.best_rep = saved_best
+	check("protecting the resort earns a bonus", perfect > 0)
+	check("bottoming out earns no bonus", scraped == 0)
+
+	check("there is a fourth shift", Levels.LIST.size() >= 4)
+	check("the full kit is affordable before the final shift",
+		Upgrades.total_cost() < 1500 + 4000 + 11000)
 	check("difficulty rises with each shift",
 		float(Levels.LIST[0]["difficulty"]) < float(Levels.LIST[1]["difficulty"])
 			and float(Levels.LIST[1]["difficulty"]) < float(Levels.LIST[2]["difficulty"]))
@@ -569,6 +591,46 @@ func _run() -> void:
 		if game.owned.has(String(up["id"])):
 			game.apply_upgrade(String(up["id"]))
 
+	print("\n[collision cost]")
+	# The exploit this closes: destroying the load let a player skim tourists to
+	# wipe seaweed off the mess total for free.
+	# Clear the board first: a live tourist can stun the player a frame before
+	# get_hit() is called, and a stunned player ignores the hit entirely.
+	for c in game.world.get_children():
+		if c is Tourist:
+			c.free()
+	paused = false
+	game.player._stun = 0.0
+	game.player.in_safe_zone = false
+	game.player.position = Vector2(180, 300)
+	game.player.carried = 8
+	var mess_before: float = game.rep.shore_mess()
+	# Count UNITS, not clumps: scattered debris merges into nearby piles, so the
+	# number of Seaweed nodes can stay flat while the beach genuinely gains
+	# work. Units is the thing the player has to clear.
+	var units_before := 0
+	for c in game.world.get_children():
+		if c is Seaweed and not (c as Seaweed).drifting:
+			units_before += (c as Seaweed).units
+	game.player.get_hit()
+	await frames(4)
+	check("a hit empties the carry", game.player.carried == 0)
+	var units_after := 0
+	for c in game.world.get_children():
+		if c is Seaweed and not (c as Seaweed).drifting:
+			units_after += (c as Seaweed).units
+	check("the load lands back on the sand rather than vanishing",
+		units_after > units_before)
+	check("dropped seaweed still counts against reputation",
+		game.rep.shore_mess() >= mess_before)
+	var on_sand := true
+	for c in game.world.get_children():
+		if c is Seaweed and (c as Seaweed).position.y > Zones.SHALLOW_TOP:
+			continue
+		if c is Seaweed and (c as Seaweed).position.y < Zones.HOTEL_BOTTOM:
+			on_sand = false
+	check("scattered seaweed stays out of the resort", on_sand)
+
 	print("\n[audio]")
 	check("every sound cue resolves to a real file",
 		game.audio._streams.size() >= 9)
@@ -592,6 +654,7 @@ func _run() -> void:
 		if c is Seaweed and not (c as Seaweed).drifting:
 			victim = c as Seaweed
 			break
+	paused = false
 	if victim != null:
 		victim._pop_and_free()
 		check("collected seaweed animates out rather than vanishing",
@@ -625,6 +688,9 @@ func _run() -> void:
 	var expect_credits: int = int(game._shift_start["credits"])
 	game.credits += 5000
 	game.credits_earned = 5000
+	game.level_failed = false
+	game.level_done = false
+	paused = false
 	game.rep.value = 0.0
 	game.rep.zero_time = 0.0
 	game._check_level_failed()

@@ -66,6 +66,7 @@ var level_index := 0
 var credits_earned := 0        # this shift only; spending never sets it back
 var shift_elapsed := 0.0       # seconds of play in the current shift
 var best_rep := 100.0          # lowest the meter fell to -- how close it got
+var shift_bonus := 0           # paid on completion, shown on the summary
 var level_done := false
 var level_failed := false
 var free_play := false
@@ -393,12 +394,23 @@ func _build_systems() -> void:
 # Shift lifecycle
 # =============================================================================
 
+# How much busier the beach gets between the start of a shift and its end.
+const SHIFT_RAMP := 1.75
+
+
 func difficulty() -> float:
-	# Spawn pressure multiplier for the current shift. Free play holds the last
-	# shift's setting rather than dropping back to shift 1, which would make the
-	# reward for finishing feel like a demotion.
+	# Spawn pressure for the current shift, RAMPED by how far through it you
+	# are. A flat rate per shift was the problem: upgrades raise your throughput
+	# but the beach stayed the same, so every shift got easier as it went on.
+	#
+	# Tying the ramp to credits earned means the pressure tracks the player's
+	# own output -- buy a tractor and earn faster, and the beach fills faster to
+	# match. It self-balances against whatever gear they have.
 	var lv := current_level()
-	return maxf(0.1, float(lv.get("difficulty", 1.0)))
+	var base := maxf(0.1, float(lv.get("difficulty", 1.0)))
+	var goal := maxf(1.0, float(lv.get("credits", 1500)))
+	var progress := clampf(float(credits_earned) / goal, 0.0, 1.0)
+	return base * lerpf(1.0, SHIFT_RAMP, progress)
 
 
 func storm_mult() -> float:
@@ -536,8 +548,24 @@ func _check_level_complete() -> void:
 	finish_level()
 
 
+# Fraction of the shift's credit target paid as a bonus for a perfect shift.
+const REP_BONUS_MAX := 0.30
+
+
+func reputation_bonus() -> int:
+	# Rewards HOW the shift went, not just that it ended. Scaled by the lowest
+	# the meter fell: never slipping pays the full bonus, bottoming out pays
+	# nothing. Framed as a reward on top rather than a cut to what you keep --
+	# the goal is to make playing well feel good, not playing badly feel bad.
+	var lv := current_level()
+	var quality := clampf(best_rep / 100.0, 0.0, 1.0)
+	return int(round(float(lv.get("credits", 0)) * REP_BONUS_MAX * quality))
+
+
 func finish_level() -> void:
 	level_done = true
+	shift_bonus = reputation_bonus()
+	credits += shift_bonus
 	joystick.active = false
 	shop.visible = false
 	_save_progress()
@@ -782,11 +810,14 @@ func on_player_hit(lost_units: int, lost_value: int, at: Vector2) -> void:
 		shake(4.0, 0.22)
 		return
 	sfx("hit")
-	# Gone for good. Nothing scatters back onto the sand -- the load is simply
-	# destroyed, so a collision costs you the round trip as well as the haul.
-	popup("LOAD LOST", at, Color(1.0, 0.42, 0.42))
+	# The load bursts back onto the sand instead of being destroyed. Destroying
+	# it made a collision a FREE way to clear the beach: a player about to lose
+	# on reputation could skim the shoreline, take a hit, and wipe their carry
+	# off the mess total at no cost. Now the seaweed is still there and still
+	# counts -- what a hit costs you is the work of picking it all up again.
+	spawner.scatter(lost_units, at)
+	popup("LOAD DROPPED", at, Color(1.0, 0.42, 0.42))
 	shake(7.0, 0.34)
-	popup("-%d cr" % lost_value, at + Vector2(0, 22), Color(1.0, 0.62, 0.55))
 
 
 func add_credits(n: int) -> void:
