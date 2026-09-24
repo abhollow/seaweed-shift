@@ -57,9 +57,16 @@ func rebuild() -> void:
 		_list.remove_child(child)
 		child.queue_free()
 
+	# Each shift features its own tier. Anything from an EARLIER tier that has
+	# not been bought yet stays available, so skipping the waders in shift 1
+	# never locks the player out of the shallows. Owned upgrades are hidden
+	# rather than listed as OWNED -- the shop shows what you can still get.
+	var shop_tier: int = game.shop_tier()
 	var last_tier := 0
 	for up in Upgrades.LIST:
 		var tier := int(up["tier"])
+		if tier > shop_tier or game.owned.has(up["id"]):
+			continue
 		if tier != last_tier:
 			last_tier = tier
 			if _list.get_child_count() > 0:

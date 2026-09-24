@@ -19,6 +19,7 @@ extends RefCounted
 
 const LIST := [
 	{
+		"shop_tier": 1,
 		"name": "SHIFT 1  --  Low Season",
 		"credits": 1500,
 		"rep": 70.0,
@@ -39,6 +40,7 @@ const LIST := [
 		],
 	},
 	{
+		"shop_tier": 2,
 		"name": "SHIFT 2  --  Shoulder Season",
 		"credits": 4000,
 		"rep": 75.0,
@@ -58,6 +60,7 @@ const LIST := [
 		],
 	},
 	{
+		"shop_tier": 3,
 		"name": "SHIFT 3  --  High Season",
 		"credits": 11000,
 		"rep": 80.0,
@@ -79,6 +82,7 @@ const LIST := [
 		# one is played entirely with everything unlocked -- deep water, kelp,
 		# the loaded hopper. It exists because the most rewarding part of the
 		# game was arriving just as the credits rolled.
+		"shop_tier": 3,
 		"name": "SHIFT 4  --  Peak Season",
 		"credits": 14000,
 		"rep": 80.0,

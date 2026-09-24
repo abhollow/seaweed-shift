@@ -1,7 +1,39 @@
 # Planned: Levels as the outer loop
 
-**Status: agreed in principle, not built.** Shift 4 exists; everything else below
-is design.
+**Status: the loop is BUILT.** Levels, shop theming, retention and the ten-level
+arc all work and are tested. Still to do: each level's own backdrop, music and
+signature event -- every level currently reuses the Cancun beach.
+
+## As built
+
+| Shift | Shop features | |
+|---|---|---|
+| 1 | Tier 1 -- on foot | rake, jacket, backpack, waders |
+| 2 | Tier 2 -- the tractor | tractor, sand tires, sorter |
+| 3 | Tier 3 -- deep water | diesel, hopper, trawler |
+| 4 | Everything | the payoff shift, fully equipped |
+
+Anything from an earlier tier that was **not** bought stays in the shop, so the
+player is never locked out -- skipping the waders in shift 1 does not cost them
+the shallows forever. Owned upgrades are hidden rather than listed.
+
+**Retention.** Tiers are retained in order -- all four on-foot upgrades first,
+then the tractor tier, then deep water. 4 + 3 + 3 = **exactly ten levels**, after
+which nothing is left to keep and the campaign is complete.
+
+An upgrade can only be retained once its **prerequisite** is: keeping Sand Tires
+without a tractor would be a permanent upgrade that does nothing. This makes a
+few choices forced -- level 5 must take the tractor, since everything else in its
+tier needs one -- which is thematically right: the tractor is the tier.
+
+**Why 4 / 3 / 3.** The original file split the machinery 5 / 1, putting only the
+trawler in deep water. That left shift 3's shop with a single item. Moving the
+hopper and diesel to deep water gives every themed shift a real shop and keeps
+the arc at ten levels.
+
+**Each level is 7% harder** than the last (`Game.LEVEL_STEP`), on top of the
+per-shift base and the within-shift ramp. Gentle, because by level 10 the player
+starts with nine upgrades already owned.
 
 ## The loop
 

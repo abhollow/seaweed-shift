@@ -825,6 +825,91 @@ func _run() -> void:
 	check("outgoing track stops when the crossfade ends",
 		not (game.audio._players[0].playing and game.audio._players[1].playing))
 
+	print("\n[levels and retention]")
+	paused = false
+	# Start from a clean campaign so the arc below is measured from level 1.
+	game.retained = {}
+	game.level = 1
+	game.level_index = 0
+	game.owned.clear()
+	game._reset_player_stats()
+	game._recompute_carry()
+
+	# -- shop theming ---------------------------------------------------------
+	game.level_index = 0
+	check("shift 1 features the on-foot tier", game.shop_tier() == 1)
+	game.level_index = 1
+	check("shift 2 features the tractor tier", game.shop_tier() == 2)
+	game.level_index = 2
+	check("shift 3 features deep water", game.shop_tier() == 3)
+	game.level_index = 3
+	check("shift 4 offers everything", game.shop_tier() == 3)
+	game.level_index = 0
+
+	# -- the retain rules ----------------------------------------------------
+	var first_pick: Array = game.retain_options()
+	check("the first retain choice is from the on-foot tier", not first_pick.is_empty()
+		and first_pick.all(func(id): return int(Upgrades.by_id(id)["tier"]) == 1))
+	check("an upgrade whose prerequisite is not retained cannot be kept",
+		not first_pick.has("backpack"))
+
+	# -- one rollover, checked in detail -------------------------------------
+	game.credits = 5000
+	game.owned["tractor"] = true
+	game.retain_and_advance("rake2")
+	check("the level advances", game.level == 2)
+	check("the kept upgrade is retained", game.retained.has("rake2"))
+	check("credits reset for the new level", game.credits == 0)
+	check("the new level starts at shift 1", game.level_index == 0)
+	check("non-retained gear is gone", not game.owned.has("tractor"))
+	check("retained gear is owned from the start", game.owned.has("rake2"))
+	check("with the rake retained, the backpack becomes keepable",
+		game.retain_options().has("backpack"))
+
+	# The bug the design doc warned about: the failure snapshot is taken in
+	# begin_level(), so if the rollover ran it before resetting owned, a failed
+	# shift 1 of the new level would hand back the old level's tractor.
+	check("the retry snapshot holds only the new level's gear",
+		not (game._shift_start.get("owned", {}) as Dictionary).has("tractor")
+			and (game._shift_start.get("owned", {}) as Dictionary).has("rake2"))
+	check("later levels are harder", game.level_scale() > 1.0)
+
+	# -- the full arc ---------------------------------------------------------
+	game.retained = {}
+	game.level = 1
+	var tiers_seen := []
+	var levels_played := 0
+	while true:
+		var opts: Array = game.retain_options()
+		if opts.is_empty():
+			break
+		tiers_seen.append(int(Upgrades.by_id(String(opts[0]))["tier"]))
+		game.retain_and_advance(String(opts[0]))
+		levels_played += 1
+		if levels_played > 20:
+			break
+	check("the campaign is exactly ten levels", levels_played == 10)
+	check("every upgrade ends up retained", game.retained.size() == Upgrades.LIST.size())
+	var ordered := true
+	for i in range(1, tiers_seen.size()):
+		if tiers_seen[i] < tiers_seen[i - 1]:
+			ordered = false
+	check("tiers are retained in order: on foot, tractor, deep", ordered)
+	check("with everything kept there is nothing left to choose",
+		game.retain_options().is_empty())
+
+	# -- persistence ----------------------------------------------------------
+	game._save_progress()
+	var saved: Dictionary = SaveGame.load_data()
+	check("the level is saved", int(saved.get("level", 0)) == game.level)
+	check("retained upgrades are saved",
+		(saved.get("retained", {}) as Dictionary).size() == 10)
+
+	paused = false
+	game.retained = {}
+	game.level = 1
+	SaveGame.wipe()
+
 	print("\n[menu]")
 	# The 20s autosave fires during the waits above, so clear it again before
 	# asserting what a save-less first launch looks like.

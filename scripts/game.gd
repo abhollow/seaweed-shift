@@ -68,6 +68,12 @@ var shift_elapsed := 0.0       # seconds of play in the current shift
 var best_rep := 100.0          # lowest the meter fell to -- how close it got
 var shift_bonus := 0           # paid on completion, shown on the summary
 var level_done := false
+
+# The outer loop. A LEVEL is the four shifts; finishing shift 4 ends it and the
+# player keeps one upgrade permanently. level_index (above) is the shift within
+# the current level -- the naming predates levels and is kept to avoid churn.
+var level := 1
+var retained := {}
 var level_failed := false
 var free_play := false
 
@@ -410,7 +416,7 @@ func difficulty() -> float:
 	var base := maxf(0.1, float(lv.get("difficulty", 1.0)))
 	var goal := maxf(1.0, float(lv.get("credits", 1500)))
 	var progress := clampf(float(credits_earned) / goal, 0.0, 1.0)
-	return base * lerpf(1.0, SHIFT_RAMP, progress)
+	return base * lerpf(1.0, SHIFT_RAMP, progress) * level_scale()
 
 
 func storm_mult() -> float:
@@ -423,6 +429,50 @@ func storm_burst() -> int:
 
 func rot_scale() -> float:
 	return maxf(0.2, float(current_level().get("rot_scale", 1.0)))
+
+
+func shop_tier() -> int:
+	return int(current_level().get("shop_tier", 3))
+
+
+# Every level is harder than the last, applied on top of the per-shift base and
+# the within-shift ramp. Gentle, because the player is also stronger: by level
+# 10 they start with nine upgrades already owned.
+const LEVEL_STEP := 0.07
+
+
+func level_scale() -> float:
+	return 1.0 + LEVEL_STEP * float(level - 1)
+
+
+func retain_tier() -> int:
+	# The lowest tier that still has something left to retain. Tier 1 goes
+	# first, then the tractor tier, then deep water.
+	for t in [1, 2, 3]:
+		for up in Upgrades.LIST:
+			if int(up["tier"]) == t and not retained.has(String(up["id"])):
+				return t
+	return 0
+
+
+func retain_options() -> Array:
+	# Upgrades that can be kept at the end of this level. Restricted to the
+	# current retain tier, and to ones whose prerequisite is already retained:
+	# keeping Sand Tires without a tractor would be a permanent upgrade that
+	# does literally nothing.
+	var t := retain_tier()
+	var out := []
+	if t == 0:
+		return out
+	for up in Upgrades.LIST:
+		var id := String(up["id"])
+		if int(up["tier"]) != t or retained.has(id):
+			continue
+		var needs := String(up["needs"])
+		if needs != "" and not retained.has(needs):
+			continue
+		out.append(id)
+	return out
 
 
 func current_level() -> Dictionary:
@@ -599,9 +649,47 @@ func next_shift() -> void:
 	if level_index + 1 < Levels.LIST.size():
 		level_index += 1
 		begin_level()
-	else:
-		# Out of authored shifts: keep the sandbox running with no objectives.
+		_save_progress()
+		return
+
+	# End of the level. If there is anything left to retain, the player picks
+	# one; otherwise every upgrade is permanent and the campaign is complete.
+	var options := retain_options()
+	if options.is_empty():
 		free_play = true
+		_save_progress()
+		return
+	get_tree().paused = true
+	joystick.active = false
+	level_done = true
+	level_panel.show_retain(options)
+
+
+func retain_and_advance(id: String) -> void:
+	# Keep one upgrade for good, then start the next level from scratch apart
+	# from everything retained so far.
+	#
+	# Order matters here. owned, credits and level_index are all reset BEFORE
+	# begin_level(), because begin_level() is what takes the failure-retry
+	# snapshot. If it ran first, a failed shift 1 of the new level would
+	# restore the old level's full kit.
+	retained[id] = true
+	level += 1
+	credits = 0
+	level_index = 0
+	owned = retained.duplicate()
+
+	_reset_player_stats()
+	for up in Upgrades.LIST:
+		if owned.has(String(up["id"])):
+			apply_upgrade(String(up["id"]))
+	_recompute_carry()
+
+	level_panel.visible = false
+	get_tree().paused = false
+	joystick.active = true
+	level_done = false
+	begin_level()
 	_save_progress()
 
 
@@ -753,6 +841,10 @@ func _load_progress() -> void:
 	level_index = int(data.get("level_index", 0))
 	free_play = bool(data.get("free_play", false))
 	level_index = clampi(level_index, 0, Levels.LIST.size() - 1)
+	level = maxi(1, int(data.get("level", 1)))
+	var saved_retained = data.get("retained", {})
+	if typeof(saved_retained) == TYPE_DICTIONARY:
+		retained = saved_retained.duplicate()
 
 	# Re-apply every owned upgrade so derived stats (capacity, reach, speed,
 	# deep-water access) come back exactly as they were.
@@ -771,6 +863,8 @@ func _save_progress() -> void:
 		"owned": owned,
 		"level_index": level_index,
 		"free_play": free_play,
+		"level": level,
+		"retained": retained,
 	})
 
 

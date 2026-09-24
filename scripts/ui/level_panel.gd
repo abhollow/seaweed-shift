@@ -10,6 +10,7 @@ var _title: Label
 var _body: Label
 var _button: Button
 var _failed := false
+var _choices: VBoxContainer
 
 
 func build() -> void:
@@ -45,6 +46,12 @@ func build() -> void:
 	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_child(_body)
 
+	# One button per retainable upgrade, shown only on the end-of-level screen.
+	_choices = VBoxContainer.new()
+	_choices.add_theme_constant_override("separation", 8)
+	_choices.visible = false
+	box.add_child(_choices)
+
 	_button = UiTheme.button(Button.new())
 	_button.custom_minimum_size = Vector2(0, 48)
 	_button.pressed.connect(_on_pressed)
@@ -59,6 +66,9 @@ func _on_pressed() -> void:
 
 
 func show_failure() -> void:
+	if _choices != null:
+		_choices.visible = false
+	_button.visible = true
 	# Say plainly what went wrong and what it cost. A bare "you lost" would be
 	# infuriating given the shift restarts from scratch.
 	_failed = true
@@ -77,7 +87,38 @@ func show_failure() -> void:
 	_present()
 
 
+func show_retain(options: Array) -> void:
+	# End of a level. The whole point of this screen is that the reset reads as
+	# a reward the player chose, not a wipe they suffered -- so it leads with
+	# what they are KEEPING, and only mentions the reset second.
+	_failed = false
+	_title.text = "LEVEL %d COMPLETE" % game.level
+	_title.add_theme_color_override("font_color", UiTheme.ACCENT)
+	var kept: int = game.retained.size()
+	_body.text = ("Choose one upgrade to keep for good.\n\n"
+		+ "It carries into every level from now on. Everything else resets, "
+		+ "and the beach gets a little harder.\n\n%d of 10 kept so far.") % kept
+
+	for c in _choices.get_children():
+		_choices.remove_child(c)
+		c.queue_free()
+	for id in options:
+		var up: Dictionary = Upgrades.by_id(String(id))
+		var b := UiTheme.button(Button.new())
+		b.custom_minimum_size = Vector2(0, 44)
+		b.text = "KEEP  %s" % String(up["name"]).to_upper()
+		b.pressed.connect(func(): game.retain_and_advance(String(id)))
+		_choices.add_child(b)
+
+	_choices.visible = true
+	_button.visible = false
+	_present()
+
+
 func show_summary(is_last: bool) -> void:
+	if _choices != null:
+		_choices.visible = false
+	_button.visible = true
 	_failed = false
 	_title.add_theme_color_override("font_color", UiTheme.ACCENT)
 	var lv: Dictionary = game.current_level()

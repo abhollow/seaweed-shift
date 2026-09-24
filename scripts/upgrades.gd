@@ -13,11 +13,23 @@ extends RefCounted
 # The tiers map onto the map itself: tier 1 works the narrow beach strip, tier 2
 # opens the shallows, tier 3 opens the deep.
 
+# Tier drives two things: which shift's shop features the upgrade, and the
+# order upgrades become RETAINABLE across levels. Split 4 / 3 / 3 so that every
+# themed shift has a real shop and the retain arc runs exactly ten levels. The
+# hopper and diesel sit with deep water because they are the late-game kit for
+# long kelp runs, not tractor basics.
 const TIER_NAMES := {
 	1: "TIER 1  --  ON FOOT",
-	2: "TIER 2  --  MACHINERY",
+	2: "TIER 2  --  THE TRACTOR",
 	3: "TIER 3  --  DEEP WATER",
 }
+
+static func by_id(id: String) -> Dictionary:
+	for up in LIST:
+		if String(up["id"]) == id:
+			return up
+	return {}
+
 
 static func total_cost() -> int:
 	# Used by the smoke test to keep the economy solvable: the full kit must
@@ -88,7 +100,7 @@ const LIST := [
 	},
 	{
 		"id": "diesel",
-		"tier": 2,
+		"tier": 3,
 		"name": "Illicit Diesel",
 		"cost": 1700,
 		"desc": "Tractor runs 40% faster.",
@@ -96,7 +108,7 @@ const LIST := [
 	},
 	{
 		"id": "hopper",
-		"tier": 2,
+		"tier": 3,
 		"name": "Rear Hopper",
 		"cost": 1900,
 		"desc": "Carry 100. Far fewer trips.",

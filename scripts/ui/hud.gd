@@ -260,8 +260,8 @@ func refresh() -> void:
 		var earned: int = game.credits_earned
 		var hold_need: float = float(lv["hold"])
 
-		_lbl_shift.text = "SHIFT %d of %d  --  %d/%d cr" % [
-			game.level_index + 1, Levels.LIST.size(), earned, need,
+		_lbl_shift.text = "L%d  S%d/%d  %d/%d cr" % [
+			game.level, game.level_index + 1, Levels.LIST.size(), earned, need,
 		]
 		_goal_bg.visible = true
 		_goal_fill.visible = true
