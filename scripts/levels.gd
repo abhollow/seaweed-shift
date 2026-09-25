@@ -47,7 +47,7 @@ const LIST := [
 		"hold": 120.0,
 		# Tier-2 gear roughly doubles throughput, so the beach has to fill
 		# faster or the shift plays exactly like shift 1 with bigger numbers.
-		"difficulty": 1.5,
+		"difficulty": 1.8,
 		"rot_scale": 0.8,
 		"storm_mult": 0.50,
 		"storm_burst": 2,
@@ -65,7 +65,7 @@ const LIST := [
 		"credits": 11000,
 		"rep": 80.0,
 		"hold": 150.0,
-		"difficulty": 2.1,
+		"difficulty": 2.6,
 		"rot_scale": 0.62,
 		"storm_mult": 0.35,
 		"storm_burst": 3,
@@ -87,7 +87,7 @@ const LIST := [
 		"credits": 14000,
 		"rep": 80.0,
 		"hold": 150.0,
-		"difficulty": 2.4,
+		"difficulty": 3.3,
 		"rot_scale": 0.58,
 		"storm_mult": 0.33,
 		"storm_burst": 3,

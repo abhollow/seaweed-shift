@@ -1,7 +1,9 @@
-# Seaweed Shift
+# Seaweed Shift: Mexico
 
-A 2D pixel-art mobile game: clean seaweed off a resort beach, earn credits, buy
-better gear, keep the resort's reputation up. Godot 4.3, portrait 360x640.
+A 2D pixel-art mobile game: clean sargassum seaweed off resort beaches along
+Mexico's coast, earn credits, buy better gear, keep each resort's reputation up.
+Ten levels, each a different real location, with one upgrade kept permanently at
+the end of every level. Godot 4.3, portrait 360x640.
 
 ## Running it
 

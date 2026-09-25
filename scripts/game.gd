@@ -115,6 +115,7 @@ var fx: WeatherFx
 var _water_t := 0.0
 var _water_frame := -1
 var _shake_tw: Tween
+var _bg_sprite: Sprite2D
 
 
 func _ready() -> void:
@@ -134,6 +135,7 @@ func _ready() -> void:
 	if not start_fresh:
 		_load_progress()
 
+	apply_beach()
 	begin_level()
 	hud.refresh()
 
@@ -194,6 +196,7 @@ func _full_background() -> void:
 	# the art is 360x640 or an exact multiple of it. Anything else stretches and
 	# loses the pixel grid -- see ART_MANIFEST.md for the required size.
 	var bg := Sprite2D.new()
+	_bg_sprite = bg
 	bg.texture = tex_background
 	bg.centered = false
 	bg.z_index = -10
@@ -412,11 +415,37 @@ func difficulty() -> float:
 	# Tying the ramp to credits earned means the pressure tracks the player's
 	# own output -- buy a tractor and earn faster, and the beach fills faster to
 	# match. It self-balances against whatever gear they have.
-	var lv := current_level()
-	var base := maxf(0.1, float(lv.get("difficulty", 1.0)))
-	var goal := maxf(1.0, float(lv.get("credits", 1500)))
+	var goal := maxf(1.0, float(current_level().get("credits", 1500)))
 	var progress := clampf(float(credits_earned) / goal, 0.0, 1.0)
-	return base * lerpf(1.0, SHIFT_RAMP, progress) * level_scale()
+	return shift_difficulty() * lerpf(1.0, SHIFT_RAMP, progress)
+
+
+func shift_difficulty() -> float:
+	# The shift's own step on the curve, times the level: the value that rises
+	# between shifts and between levels, but NOT during a shift. Wash speed and
+	# the seaweed cap follow this rather than difficulty(), so shift 1 of level
+	# 1 -- the balance the player has confirmed feels right -- is untouched.
+	var base := maxf(0.1, float(current_level().get("difficulty", 1.0)))
+	return base * level_scale()
+
+
+# Share of the difficulty curve that goes into drift speed. Drift matters as much
+# as spawn rate: with a population cap in place, faster drift is what puts more
+# of that population on the SAND rather than floating harmlessly offshore.
+const DRIFT_SHARE := 0.45
+# Extra clumps allowed on screen per unit of difficulty above 1.
+const CAP_PER_DIFFICULTY := 7.0
+
+
+func wash_speed() -> float:
+	return 1.0 + (shift_difficulty() - 1.0) * DRIFT_SHARE
+
+
+func seaweed_cap() -> int:
+	# The population cap has to rise with the curve. At a fixed 34, later
+	# shifts filled it and every further increase in spawn rate did nothing --
+	# which is why shifts 2 to 4 felt no harder than shift 1.
+	return int(Spawner.SEAWEED_MAX + CAP_PER_DIFFICULTY * (shift_difficulty() - 1.0))
 
 
 func storm_mult() -> float:
@@ -550,7 +579,7 @@ func fail_shift() -> void:
 
 func retry_shift() -> void:
 	if audio != null:
-		audio.restore_music_level(0.8)
+		audio.pause_music(false)
 	# Roll all the way back to how the shift started. Credits earned and any
 	# upgrades bought during the failed attempt are gone.
 	credits = int(_shift_start.get("credits", 0))
@@ -620,10 +649,10 @@ func finish_level() -> void:
 	shop.visible = false
 	_save_progress()
 	sfx("complete")
-	# The completion sting is a 15s celebration piece, not a short cue, so the
-	# music has to get out of its way or the two fight for the whole panel.
+	# The completion sting is a 15s celebration piece. Everything musical stops
+	# for it -- the playlist AND any storm or Happy Hour bed.
 	if audio != null:
-		audio.duck_music(-24.0, 0.5)
+		audio.pause_music(true)
 
 	# Let the moment land in the WORLD before the UI covers it: a punch of
 	# shake and a banner over the beach, then the panel a beat later. Showing
@@ -640,7 +669,7 @@ func finish_level() -> void:
 
 func next_shift() -> void:
 	if audio != null:
-		audio.restore_music_level(0.8)
+		audio.pause_music(false)
 	level_panel.visible = false
 	get_tree().paused = false
 	joystick.active = true
@@ -665,7 +694,58 @@ func next_shift() -> void:
 	level_panel.show_retain(options)
 
 
+func apply_beach() -> void:
+	# Move the world onto this level's beach. Everything that was built ONCE
+	# from the zone values has to be refreshed here: the background, the
+	# animated water strip, the buoy line, the bay, and the player's bounds.
+	# Anything read at the moment of use (spawn bands, tourist routes, where
+	# seaweed beaches) picks the new values up on its own.
+	var beach := Beaches.for_level(level)
+	Zones.apply(beach)
+
+	var bg_path := String(beach.get("background", ""))
+	if _bg_sprite != null and bg_path != "" and ResourceLoader.exists(bg_path):
+		var tex: Texture2D = load(bg_path)
+		_bg_sprite.texture = tex
+		var t := tex.get_size()
+		if t.x > 0.0 and t.y > 0.0:
+			_bg_sprite.scale = Vector2(Zones.VIEW_W / t.x, Zones.VIEW_H / t.y)
+
+	var pattern := String(beach.get("water", ""))
+	if pattern != "":
+		var frames: Array[Texture2D] = []
+		for i in 8:
+			var path := pattern % i
+			if ResourceLoader.exists(path):
+				frames.append(load(path))
+		if frames.size() >= 2:
+			tex_water_frames = frames
+			_water_frame = -1
+			if _water != null:
+				_water.texture = frames[0]
+				_water.position = Vector2(0, Zones.WATER_TOP)
+				var ft := frames[0].get_size()
+				_water.scale = Vector2(Zones.VIEW_W / ft.x,
+					(Zones.VIEW_H - Zones.WATER_TOP) / ft.y)
+
+	if _buoys != null:
+		for b in _buoys.get_children():
+			if b is Sprite2D:
+				(b as Sprite2D).position.y = Zones.DEEP_TOP
+			elif b is ColorRect:
+				(b as ColorRect).position.y = Zones.DEEP_TOP - 4.0
+
+	if player != null:
+		player.shallow_y = Zones.SHALLOW_TOP
+		player.deep_y = Zones.DEEP_TOP
+		player.min_y = Zones.HOTEL_BOTTOM + 10.0
+		player.max_y = (Zones.VIEW_H - 14.0) if player.can_enter_deep \
+			else (Zones.DEEP_TOP - 12.0)
+
+
 func retain_and_advance(id: String) -> void:
+	if audio != null:
+		audio.pause_music(false)
 	# Keep one upgrade for good, then start the next level from scratch apart
 	# from everything retained so far.
 	#
@@ -689,6 +769,7 @@ func retain_and_advance(id: String) -> void:
 	get_tree().paused = false
 	joystick.active = true
 	level_done = false
+	apply_beach()
 	begin_level()
 	_save_progress()
 

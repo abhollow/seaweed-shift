@@ -4,6 +4,9 @@
 arc all work and are tested. Still to do: each level's own backdrop, music and
 signature event -- every level currently reuses the Cancun beach.
 
+**The game is "Seaweed Shift: Mexico".** Each level is a real Mexican location;
+Cancun is level 1, not the game's name.
+
 ## As built
 
 | Shift | Shop features | |

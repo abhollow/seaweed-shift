@@ -57,16 +57,14 @@ func rebuild() -> void:
 		_list.remove_child(child)
 		child.queue_free()
 
-	# Each shift features its own tier. Anything from an EARLIER tier that has
-	# not been bought yet stays available, so skipping the waders in shift 1
-	# never locks the player out of the shallows. Owned upgrades are hidden
-	# rather than listed as OWNED -- the shop shows what you can still get.
+	# Every upgrade is always LISTED, so the player can see what is coming.
+	# Only the current shift's tier -- and anything left unbought from earlier
+	# tiers -- can be bought. Later tiers show greyed out with the shift that
+	# opens them; owned ones show greyed as OWNED.
 	var shop_tier: int = game.shop_tier()
 	var last_tier := 0
 	for up in Upgrades.LIST:
 		var tier := int(up["tier"])
-		if tier > shop_tier or game.owned.has(up["id"]):
-			continue
 		if tier != last_tier:
 			last_tier = tier
 			if _list.get_child_count() > 0:
@@ -85,9 +83,13 @@ func rebuild() -> void:
 		var is_owned: bool = game.owned.has(up["id"])
 		var needs: String = up["needs"]
 		var locked: bool = needs != "" and not game.owned.has(needs)
+		var later: bool = tier > shop_tier
 
 		if is_owned:
 			b.text = "%s  --  OWNED" % up["name"]
+			b.disabled = true
+		elif later:
+			b.text = "%s  --  shift %d" % [up["name"], tier]
 			b.disabled = true
 		elif locked:
 			b.text = "%s  --  locked" % up["name"]
@@ -100,7 +102,12 @@ func rebuild() -> void:
 		_list.add_child(b)
 
 		var desc := Label.new()
-		desc.text = "Requires the %s first." % _name_of(needs) if locked else String(up["desc"])
+		if later and not is_owned:
+			desc.text = "Opens in shift %d.  %s" % [tier, String(up["desc"])]
+		elif locked and not is_owned:
+			desc.text = "Requires the %s first." % _name_of(needs)
+		else:
+			desc.text = String(up["desc"])
 		desc.add_theme_font_size_override("font_size", 12)
 		desc.add_theme_color_override("font_color", UiTheme.TEXT_DIM)
 		_list.add_child(desc)

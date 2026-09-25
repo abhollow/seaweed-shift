@@ -738,8 +738,9 @@ func _run() -> void:
 	check("shift completed", game.level_done)
 	# The world gets the moment first -- shake and a banner -- and the panel
 	# arrives a beat later, so it must NOT be up immediately.
-	check("music ducks for the completion sting",
-		AudioServer.get_bus_volume_db(AudioServer.get_bus_index("MusicTrack")) < -1.0)
+	check("all music stops for the completion sting",
+		game.audio._players[0].stream_paused and game.audio._players[1].stream_paused
+			and game.audio._event.stream_paused)
 	check("the panel waits a beat rather than snapping up",
 		not game.level_panel.visible)
 	await sim(1.2)
@@ -747,6 +748,10 @@ func _run() -> void:
 	check("summary reports the closest call", game.best_rep <= 100.0)
 	check("summary reports a shift time", game.shift_elapsed > 0.0)
 	game.next_shift()
+	check("music resumes after the shift-complete panel",
+		not game.audio._players[0].stream_paused
+			and not game.audio._players[1].stream_paused
+			and not game.audio._event.stream_paused)
 	await sim(0.4)
 	check("advanced to shift 2", game.level_index == 1)
 	check("beach wiped on new shift", _count(game, "Tourist") == 0)
@@ -824,6 +829,130 @@ func _run() -> void:
 	await sim(GameAudio.CROSSFADE + 1.0)
 	check("outgoing track stops when the crossfade ends",
 		not (game.audio._players[0].playing and game.audio._players[1].playing))
+
+	print("\n[app icon]")
+	var icon_path := String(ProjectSettings.get_setting("application/config/icon", ""))
+	check("the app icon is the game's own art", icon_path.ends_with("assets/icon/icon.png")
+		and ResourceLoader.exists(icon_path))
+	for f in ["icon_192.png", "icon_fg_432.png", "icon_bg_432.png"]:
+		check("launcher asset %s exists" % f, FileAccess.file_exists("res://assets/icon/" + f))
+
+	print("\n[difficulty curve]")
+	paused = false
+	var keep_lv: int = game.level
+	var keep_ix: int = game.level_index
+	var keep_ce: int = game.credits_earned
+	game.level = 1
+	game.credits_earned = 0
+	var washes := []
+	var caps := []
+	for i in Levels.LIST.size():
+		game.level_index = i
+		washes.append(game.wash_speed())
+		caps.append(game.seaweed_cap())
+	var rising := true
+	for i in range(1, washes.size()):
+		if washes[i] <= washes[i - 1] or caps[i] <= caps[i - 1]:
+			rising = false
+	check("seaweed washes ashore faster every shift", rising)
+	game.level_index = 0
+	check("shift 1 of level 1 is left exactly as calibrated",
+		is_equal_approx(game.wash_speed(), 1.0)
+			and game.seaweed_cap() == Spawner.SEAWEED_MAX)
+	var w_start: float = game.wash_speed()
+	game.credits_earned = int(game.current_level()["credits"])
+	check("wash speed does not ramp within a shift",
+		is_equal_approx(game.wash_speed(), w_start))
+	check("spawn rate still ramps within a shift", game.difficulty() > w_start)
+	game.credits_earned = 0
+	var l1_s1: float = game.wash_speed()
+	game.level = 5
+	check("each level starts a little harder than the last",
+		game.wash_speed() > l1_s1 and game.wash_speed() < l1_s1 * 1.5)
+	game.level_index = 3
+	var l5_s4: float = game.wash_speed()
+	game.level = 6
+	game.level_index = 0
+	check("a new level resets back down to shift 1's pace", game.wash_speed() < l5_s4)
+	game.level = keep_lv
+	game.level_index = keep_ix
+	game.credits_earned = keep_ce
+
+	print("\n[shop visibility]")
+	game.level_index = 0
+	game.owned.clear()
+	game.shop.rebuild()
+	var labels := []
+	for c in game.shop._list.get_children():
+		if c is Button:
+			labels.append((c as Button).text)
+	check("every upgrade is listed in the shop", labels.size() == Upgrades.LIST.size())
+	var tractor_row := ""
+	for t in labels:
+		if String(t).begins_with("Tractor"):
+			tractor_row = String(t)
+	check("a later-shift upgrade shows which shift opens it",
+		tractor_row.contains("shift 2"))
+	var tractor_btn: Button = null
+	for c in game.shop._list.get_children():
+		if c is Button and (c as Button).text.begins_with("Tractor"):
+			tractor_btn = c
+	check("and cannot be bought yet", tractor_btn != null and tractor_btn.disabled)
+
+	print("\n[beaches]")
+	paused = false
+	game.level = 1
+	game.apply_beach()
+	check("level 1 is Cancun", String(Beaches.for_level(1)["name"]) == "Cancun")
+	check("level 1 uses the original layout",
+		Zones.SHALLOW_TOP == 420.0 and Zones.DEEP_TOP == 530.0)
+	var cancun_sand: float = Zones.SHALLOW_TOP - Zones.HOTEL_BOTTOM
+	var cancun_shallows: float = Zones.DEEP_TOP - Zones.SHALLOW_TOP
+
+	game.level = 2
+	game.apply_beach()
+	check("level 2 is Isla Mujeres",
+		String(Beaches.for_level(2)["name"]) == "Isla Mujeres")
+	check("Isla Mujeres has a narrower beach",
+		Zones.SHALLOW_TOP - Zones.HOTEL_BOTTOM < cancun_sand)
+	check("Isla Mujeres has wider shallows",
+		Zones.DEEP_TOP - Zones.SHALLOW_TOP > cancun_shallows)
+	check("the background swaps to the new beach",
+		game._bg_sprite.texture.resource_path.ends_with("background_level2.png"))
+	check("the animated water moves to the new waterline",
+		is_equal_approx(game._water.position.y, Zones.WATER_TOP))
+	check("the buoy line moves to the new deep line",
+		game._buoys.get_child_count() > 0
+			and is_equal_approx((game._buoys.get_child(0) as Node2D).position.y,
+				Zones.DEEP_TOP))
+	check("the player's bounds follow the new beach",
+		is_equal_approx(game.player.shallow_y, Zones.SHALLOW_TOP)
+			and is_equal_approx(game.player.min_y, Zones.HOTEL_BOTTOM + 10.0))
+	check("the bay still straddles the village line on the new beach",
+		Zones.BAY_POS.y - Zones.BAY_SIZE.y / 2.0 < Zones.HOTEL_BOTTOM
+			and Zones.BAY_POS.y + Zones.BAY_SIZE.y / 2.0 > Zones.HOTEL_BOTTOM)
+	check("seaweed still beaches on sand",
+		Zones.SHORE_Y > Zones.HOTEL_BOTTOM and Zones.SHORE_Y < Zones.SHALLOW_TOP)
+
+	game.level = 7
+	game.apply_beach()
+	check("a level with no art yet falls back to Cancun",
+		Zones.SHALLOW_TOP == 420.0)
+
+	game.level = 1
+	game.apply_beach()
+
+	# The level jump writes a save that the game then loads onto that beach.
+	SaveGame.store({"credits": 0, "owned": {}, "retained": {},
+		"level": 2, "level_index": 0, "free_play": false})
+	game.level = 1
+	game._load_progress()
+	game.apply_beach()
+	check("a saved level 2 loads onto the Isla Mujeres beach",
+		game.level == 2 and Zones.SHALLOW_TOP == 335.0)
+	game.level = 1
+	game.apply_beach()
+	SaveGame.wipe()
 
 	print("\n[levels and retention]")
 	paused = false

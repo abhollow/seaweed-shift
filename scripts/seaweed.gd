@@ -301,7 +301,8 @@ func _do_drift(delta: float) -> void:
 	var mult: float = 2.5 if (game != null and game.storm_active) else 1.0
 	_sway += delta * 0.9
 
-	position.y -= drift_speed * mult * delta
+	var wash: float = float(game.wash_speed()) if game != null else 1.0
+	position.y -= drift_speed * mult * wash * delta
 	position.x += sin(_sway) * 5.0 * delta
 	position.x = clampf(position.x, 22.0, 338.0)
 

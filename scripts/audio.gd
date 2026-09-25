@@ -435,6 +435,20 @@ func _equal_power_crossfade(out_p: AudioStreamPlayer, in_p: AudioStreamPlayer,
 		_crossfading = false)
 
 
+func pause_music(on: bool) -> void:
+	# Silences ALL music for the shift-complete sting and resumes it after.
+	#
+	# Pausing rather than ducking, for two reasons. The event beds (storm,
+	# Happy Hour) play on the Music bus directly, not the MusicTrack sub-bus,
+	# so ducking MusicTrack left Happy Hour's music running at full volume. And
+	# the Music bus itself is what the player's volume slider sets, so ducking
+	# that would overwrite their setting. Pausing touches neither.
+	for p in _players:
+		p.stream_paused = on
+	if _event != null:
+		_event.stream_paused = on
+
+
 func duck_music(to_db: float, time: float = 0.9) -> void:
 	# Relative attenuation applied to the MusicTrack bus, so it composes with
 	# whatever the playlist's own fade is doing instead of overwriting it.

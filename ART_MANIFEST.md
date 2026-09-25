@@ -668,3 +668,73 @@ style, palette and proportion consistent; `--cols 4` slices it.
 tight palette is most of what makes pixel art cohere, and it's what the quantize
 step enforces. Edit that file to retune; every asset reprocessed afterwards will
 follow it.
+
+
+## Level backgrounds
+
+Each level is a real Mexican location with **its own beach geometry**, not just
+its own paint. Zone boundaries are static vars on `Zones`, set per level by
+`Zones.apply()` from `scripts/beaches.gd`. `Game.apply_beach()` then refreshes
+everything that was built once from them: background, animated water strip, buoy
+line, and the player's bounds. Levels with no entry yet fall back to Cancun.
+
+**Fit the zones to the art, not the art to the zones.** Level 1 remapped its art
+onto a fixed layout. From level 2 on, each beach's layout is chosen to suit its
+location, and the art is remapped onto *that*. Keep the village line at y=190 so
+the service bay stays put across levels -- only the sand, shallows and deep
+lines move.
+
+| Level | Location | Sand | Shallows | Deep | Twist |
+|---|---|---|---|---|---|
+| 1 | Cancun | 230px | 110px | 110px | the baseline |
+| 2 | Isla Mujeres | 145px | 210px | 95px | narrow beach, endless shallows |
+
+**Level 2 -- Isla Mujeres** (`background_level2.png`, `water2_00..07.png`).
+Colourful low-rise island village with palapas and hammocks. Source bands
+village 0-41 / sand 41-56.5 / shallows 56.5-77.5 / deep 77.5-100, remapped to
+0-190 / 190-335 / 335-545 / 545-640. The village compresses 0.72x and still
+reads; the model happened to leave a plain concrete lot on the right exactly
+where the bay goes.
+
+Rebuild the water with:
+
+    python3 tools/make_water_frames.py --src raw/bg_mujeres_fitted.png --prefix water2 \
+        --width 180 --height 320 --water-top 152 --amp-shore 1.4 --amp-deep 0.65
+
+**Testing a level**: debug builds show a TEST LEVEL row in Settings that jumps
+straight to any level with its own beach. It overwrites the save and never
+appears in a release build.
+
+
+## App icon
+
+`assets/icon/` -- generated as one framed image, then rebuilt into proper
+launcher assets:
+
+| File | Size | Use |
+|---|---|---|
+| `icon.png` | 512 | Project icon (`application/config/icon`) |
+| `icon_192.png` | 192 | Legacy launcher icon |
+| `icon_fg_432.png` | 432 | Adaptive foreground -- the worker alone |
+| `icon_bg_432.png` | 432 | Adaptive background -- the beach behind him |
+
+**The generated image had its own rounded frame baked in.** Android applies its
+own mask -- circle, squircle or rounded square, depending on the phone -- so a
+pre-drawn frame ends up as a square inside a circle with grey corners showing.
+The frame was cropped off and its corners refilled by extending the edge colours
+outward (sky at the top, sand at the bottom), sampled past the frame's inner
+bevel so no pale fringe survives.
+
+**Why split the layers.** Android shows only the middle 72 of 108dp and masks
+inside that, so full-bleed art gets the cap and boots cropped off. The worker is
+cut out and shrunk into a 62% safe zone; the backdrop is shrunk by the SAME
+factor and edge-extended outward, so the visible window shows the original
+composition -- sand under his feet, frond at the side. Shrinking only the worker
+left him floating on sky.
+
+**Cut out by keying the backdrop, not by tracing the outline.** Flood-filling
+from the border through non-outline pixels leaked through small gaps where skin
+meets sky and took both arms. The backdrop is far more distinctive -- bright
+cyan, white sand, one green frond -- so it is keyed by colour and the worker is
+whatever remains. Enclosed sky and sand patches are removed afterwards; nothing
+on the worker is bright cyan, since his cap and shorts are dark teal.

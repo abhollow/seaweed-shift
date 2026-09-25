@@ -275,6 +275,22 @@ func _on_new_game() -> void:
 	_start(true)
 
 
+func _jump_to_level(n: int) -> void:
+	# Writes a save that starts level n at shift 1 with nothing owned, then
+	# continues it -- the same path a real rollover lands on. Overwrites the
+	# current save, which is fine for a testing shortcut.
+	SaveGame.store({
+		"credits": 0,
+		"owned": {},
+		"retained": {},
+		"level": n,
+		"level_index": 0,
+		"free_play": false,
+	})
+	_show_settings(false)
+	_start(false)
+
+
 func _start(fresh: bool) -> void:
 	await _fade_out_music()
 	# Instanced by hand rather than change_scene_to_packed(), because the fresh
@@ -296,7 +312,7 @@ func _start(fresh: bool) -> void:
 func _build_settings_panel() -> void:
 	_settings_panel = UiTheme.panel(PanelContainer.new())
 	_settings_panel.position = Vector2(24, 150)
-	_settings_panel.size = Vector2(312, 340)
+	_settings_panel.size = Vector2(312, 384)
 	_settings_panel.visible = false
 	add_child(_settings_panel)
 
@@ -329,6 +345,25 @@ func _build_settings_panel() -> void:
 	reset.add_theme_color_override("font_color", Color(0.95, 0.55, 0.5))
 	reset.pressed.connect(_on_reset.bind(reset))
 	box.add_child(reset)
+
+	# Playtesting shortcut: jump straight to any level that has its own beach.
+	# Debug builds only -- a release build never shows it, so it cannot leak
+	# into the shipped game. The Android APK you side-load IS a debug build.
+	if OS.is_debug_build():
+		var jump := HBoxContainer.new()
+		jump.add_theme_constant_override("separation", 6)
+		box.add_child(jump)
+		var lbl := Label.new()
+		lbl.text = "TEST LEVEL"
+		lbl.add_theme_font_size_override("font_size", 12)
+		lbl.add_theme_color_override("font_color", Color(0.98, 0.82, 0.45))
+		jump.add_child(lbl)
+		for lv in Beaches.LIST.keys():
+			var jb := UiTheme.button(Button.new())
+			jb.text = str(lv)
+			jb.custom_minimum_size = Vector2(38, 34)
+			jb.pressed.connect(_jump_to_level.bind(int(lv)))
+			jump.add_child(jb)
 
 	var back := UiTheme.button(Button.new())
 	back.text = "BACK"

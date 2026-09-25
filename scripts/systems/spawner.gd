@@ -82,7 +82,7 @@ func _tick_seaweed(delta: float) -> void:
 	if _seaweed_t < interval:
 		return
 	_seaweed_t = 0.0
-	if count_seaweed(false) >= SEAWEED_MAX:
+	if count_seaweed(false) >= int(game.seaweed_cap()):
 		return
 	spawn_seaweed(int(game.storm_burst()) if game.storm_active else 1)
 
