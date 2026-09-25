@@ -1099,11 +1099,25 @@ func _run() -> void:
 
 	# The painted palms sway, driven by the same wind.
 	check("Veracruz's palms are animated", game._bg_sprite.material is ShaderMaterial)
-	var t0: float = float(game._sway_mat.get_shader_parameter("t"))
+	var p0: float = float(game._sway_mat.get_shader_parameter("phase"))
 	game.wind.gusting = true
 	game.wind._gust_t = game.wind.gust_len * 0.5
 	await frames(3)
-	check("the sway moves over time", float(game._sway_mat.get_shader_parameter("t")) > t0)
+	check("the sway moves over time",
+		not is_equal_approx(float(game._sway_mat.get_shader_parameter("phase")), p0))
+	# The phone bug: a growing time value lost precision on the GPU and the
+	# sway stuttered to a halt minutes in. An hour of frames must leave the
+	# phase small, and still advancing every frame.
+	var ph := 0.0
+	var biggest := 0.0
+	for i in 60 * 60 * 60:
+		var before := ph
+		ph = Game.sway_step(ph, 1.0 / 60.0, 0.5 + 0.5 * sin(float(i) * 0.01))
+		biggest = maxf(biggest, ph)
+		if i == 60 * 60 * 60 - 1:
+			check("after an hour the sway still advances every frame",
+				not is_equal_approx(ph, before))
+	check("after an hour the phase is still a small number", biggest < TAU + 0.001)
 	check("and whips harder in a gust", float(game._sway_mat.get_shader_parameter("gust")) > 0.5)
 	game.wind.gusting = false
 	game.level = 1
@@ -1159,6 +1173,177 @@ func _run() -> void:
 	for up in Upgrades.LIST:
 		if game.owned.has(String(up["id"])):
 			game.apply_upgrade(String(up["id"]))
+	game.level = 1
+	game.apply_beach()
+
+	print("\n[playa del carmen]")
+	paused = false
+	game.level = 1
+	game.apply_beach()
+	check("Cancun has no VIP area and no ferry", not game.vip.visible and not game.ferry.enabled)
+	game.level = 3
+	game.apply_beach()
+	check("Playa del Carmen has a VIP frontage", game.vip.visible)
+	check("on the far side from the skip",
+		game.vip.rect.position.x > Zones.VIEW_W * 0.5 and Zones.BAY_POS.x < Zones.VIEW_W * 0.5)
+	check("running all the way down to the water, where seaweed lands",
+		game.vip.rect.end.y >= Zones.SHORE_Y)
+	# weighting: the same pile costs triple inside the frontage
+	for c in game.world.get_children():
+		if c is Seaweed:
+			c.free()
+	var base_mess: float = game.rep.shore_mess()
+	var inside: Seaweed = game.spawner._add_seaweed(
+		Vector2(game.vip.rect.get_center().x, Zones.SHORE_Y - 10.0), 2, false, false)
+	await frames(1)
+	var in_cost: float = game.rep.shore_mess() - base_mess
+	inside.free()
+	var outside: Seaweed = game.spawner._add_seaweed(Vector2(100.0, Zones.SHORE_Y - 10.0), 2, false, false)
+	await frames(1)
+	var out_cost: float = game.rep.shore_mess() - base_mess
+	check("a pile in the VIP frontage costs triple", is_equal_approx(in_cost, out_cost * 3.0))
+	check("and one outside costs the usual amount", out_cost > 0.0)
+	outside.free()
+	var flagged: Seaweed = game.spawner._add_seaweed(
+		Vector2(game.vip.rect.get_center().x, Zones.SHORE_Y - 10.0), 1, false, false)
+	await frames(2)
+	check("the HUD calls out seaweed in the VIP area",
+		game.hud._lbl_status.text.contains("VIP"))
+	flagged.free()
+
+	# the ferry
+	check("the Cozumel ferry runs here", game.ferry.enabled)
+	check("and is not due straight away", game.ferry._next > 20.0)
+	for c in game.world.get_children():
+		if c is Seaweed:
+			c.free()
+	# Ten single-unit rafts drifting ahead of the ferry's lane, and two behind it.
+	var ahead := []
+	for i in 10:
+		var r: Seaweed = game.spawner._add_seaweed(
+			Vector2(30.0 + float(i) * 32.0, Zones.SHALLOW_TOP + 30.0 + float(i % 3) * 20.0),
+			1, false, true)
+		ahead.append(r)
+	var behind: Seaweed = game.spawner._add_seaweed(
+		Vector2(180.0, game.ferry.lane_y + 30.0), 1, false, true)
+	await frames(1)
+	var wake_units_before := 0
+	for c in game.world.get_children():
+		if c is Seaweed:
+			wake_units_before += (c as Seaweed).units
+	game.level_index = 0      # the share depends on the shift; pin shift 1
+	game.ferry.depart()
+	check("the ferry announces itself", game.ferry.running and game.ferry.inbound())
+	check("the horn comes before the ferry is in view",
+		game.ferry._x < -40.0 or game.ferry._x > Zones.VIEW_W + 40.0)
+	# The wave is the slanted arm of the V: no wave ahead of the boat, and
+	# behind it the crest climbs toward the beach at about 20 degrees.
+	var sx: float = game.ferry.stern().x
+	var back: float = -game.ferry._dir
+	check("there is no wave ahead of the boat", game.ferry.crest_y(sx - back * 30.0) == INF)
+	var slope: float = (game.ferry.crest_y(sx + back * 40.0) - game.ferry.crest_y(sx + back * 140.0)) / 100.0
+	check("the wake is slanted at about 20 degrees", absf(slope - tan(deg_to_rad(20.0))) < 0.02)
+	var travel: float = game.ferry._dir
+	var landed_at := -1.0
+	var landing_xs := []
+	var tt := 0.0
+	while tt < 30.0:
+		game.ferry.tick(0.1)
+		tt += 0.1
+		for r in ahead:
+			if is_instance_valid(r) and not (r as Seaweed).drifting and not landing_xs.has(r):
+				landing_xs.append(r)
+				if landed_at < 0.0:
+					landed_at = tt
+	# It sweeps along the beach in the direction the boat went: each landing
+	# is further along the boat's path than the one before.
+	var in_order := true
+	for i in range(1, landing_xs.size()):
+		var a: Seaweed = landing_xs[i - 1]
+		var b: Seaweed = landing_xs[i]
+		if is_instance_valid(a) and is_instance_valid(b) and (b.position.x - a.position.x) * travel < -20.0:
+			in_order = false
+	check("the wave sweeps along the beach the way the boat went", in_order and landing_xs.size() >= 2)
+	# The sweep runs ~9.4s-13.4s after the horn, and with few riders picked at
+	# random the first to land can sit anywhere in it -- so the window covers
+	# the whole sweep. (At 12s it flaked whenever both riders were far-side.)
+	check("its wake lands a few seconds after the horn",
+		landed_at > 5.0 and landed_at < 15.0)
+	var beached_units := 0
+	var drifting_units := 0
+	for c in game.world.get_children():
+		if c is Seaweed:
+			if (c as Seaweed).drifting:
+				drifting_units += (c as Seaweed).units
+			else:
+				beached_units += (c as Seaweed).units
+	check("the wake creates no new seaweed", beached_units + drifting_units == wake_units_before)
+	# Shift index 0 here: 20% of the ten rafts ahead of the ferry -- two.
+	check("on shift 1 the wake carries a light 20%", beached_units == 2)
+	check("and leaves the rest drifting", drifting_units == 9)
+	check("the share climbs shift by shift, 20/30/60/80",
+		is_equal_approx(game.ferry.share_for(0), 0.2) and is_equal_approx(game.ferry.share_for(1), 0.3)
+			and is_equal_approx(game.ferry.share_for(2), 0.6) and is_equal_approx(game.ferry.share_for(3), 0.8))
+	check("anything behind the ferry is out of the wake's path",
+		is_instance_valid(behind) and behind.drifting)
+	check("the warning clears once it has landed", not game.ferry.inbound())
+	for c in game.world.get_children():
+		if c is Seaweed:
+			c.free()
+	game.level = 1
+	game.apply_beach()
+
+	print("\n[cozumel]")
+	paused = false
+	game.level = 1
+	game.apply_beach()
+	check("daytime levels have no darkness", not game.night.active and not game.night.visible)
+	game.level = 4
+	game.apply_beach()
+	check("Cozumel is a night level", game.night.active and game.night.visible)
+	check("and it is properly dark", game.night.darkness() > 0.7)
+	check("the darkness sits over the beach but under the weather and popups",
+		game.night.z_index > 0 and game.night.z_index < game.fx.z_index)
+	# lights: the lantern, the lit bay, the resort's own lamps, and phones
+	var keep_o: Dictionary = game.owned.duplicate()
+	game.owned.clear()
+	game._recompute_carry()
+	var ls: PackedVector3Array = game.night.lights()
+	check("the worker carries a lantern",
+		ls.size() > 0 and is_equal_approx(ls[0].z, game.night.lantern))
+	check("the bay is always lit, so the skip can be found",
+		ls.size() > 1 and ls[1].distance_to(Vector3(Zones.BAY_POS.x, Zones.BAY_POS.y + 10.0, game.night.bay_light)) < 1.0)
+	check("the resort's torches light the beach", ls.size() >= 2 + game.night.fixed.size())
+	game.owned["waders"] = true
+	game.owned["tractor"] = true
+	game._recompute_carry()
+	check("the tractor's headlights light far more than a lantern",
+		game.night.player_radius() > game.night.lantern * 1.5)
+	game.owned = keep_o
+	game._reset_player_stats()
+	for up in Upgrades.LIST:
+		if game.owned.has(String(up["id"])):
+			game.apply_upgrade(String(up["id"]))
+	var phones_before: int = game.night.lights().size()
+	var tt2: Tourist = Spawner.TOURIST_SCENE.instantiate()
+	tt2.game = game
+	game.world.add_child(tt2)
+	tt2.setup(Vector2(180, 300), 480.0, false, Zones.TOURIST_DESPAWN_Y)
+	check("tourists carry a phone glow, so they are never invisible",
+		game.night.lights().size() == phones_before + 1)
+	tt2.free()
+	check("never more lights than the shader holds", game.night.lights().size() <= Night.MAX_LIGHTS)
+	# the moon
+	check("the moon is not out straight away", not game.night.moonlit())
+	var dark: float = game.night.darkness()
+	game.night.start_moon()
+	for i in 30:
+		game.night.tick(0.1)
+	check("when the clouds part, the beach lights up", game.night.darkness() < dark * 0.5)
+	check("and the HUD says so", game.night.moonlit())
+	for i in 100:
+		game.night.tick(0.1)
+	check("then the dark closes back in", is_equal_approx(game.night.darkness(), dark))
 	game.level = 1
 	game.apply_beach()
 
@@ -1331,10 +1516,13 @@ func _run() -> void:
 	quit(1 if failures.size() > 0 else 0)
 
 
-func _count(game, _type_name: String) -> int:
+func _count(game, type_name: String) -> int:
+	# Honours its argument. It used to ignore it and always count tourists, so
+	# _count(game, "Seaweed") silently counted the wrong thing -- a ferry test
+	# saw a tourist on the first tick and recorded the wake as landing at once.
 	var n := 0
 	for c in game.world.get_children():
-		if c is Tourist:
+		if (type_name == "Tourist" and c is Tourist) or (type_name == "Seaweed" and c is Seaweed):
 			n += 1
 	return n
 

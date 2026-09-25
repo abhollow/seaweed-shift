@@ -17,6 +17,7 @@ var _tag: Label
 var _button: Button
 var _sway: ShaderMaterial
 var _t := 0.0
+var _phase := 0.0
 
 
 func build() -> void:
@@ -114,9 +115,11 @@ func _process(delta: float) -> void:
 	# a slow swell in and out, enough to show the level is windy at a glance.
 	if not visible or _sway == null:
 		return
-	_t += delta
-	_sway.set_shader_parameter("t", _t)
-	_sway.set_shader_parameter("gust", clampf(sin(_t * 0.9) * 0.8, 0.0, 1.0))
+	_t = fposmod(_t + delta, TAU / 0.9)
+	var g := clampf(sin(_t * 0.9) * 0.8, 0.0, 1.0)
+	_phase = Game.sway_step(_phase, delta, g)
+	_sway.set_shader_parameter("phase", _phase)
+	_sway.set_shader_parameter("gust", g)
 
 
 func _on_start() -> void:

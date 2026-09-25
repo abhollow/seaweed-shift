@@ -51,7 +51,7 @@ const LIST := {
 		# The painted palms, flags and kites sway, driven by the wind above.
 		"sway": {
 			"mask": "res://assets/sprites/sway_level2.png",
-			"amp": 1.3,
+			"amp": 1.4,
 			"lean": 1.0,
 		},
 		"wind": {
@@ -63,7 +63,27 @@ const LIST := {
 	},
 	3: {
 		"name": "Playa del Carmen",
-		"tagline": "The party strip. The service bay is on the left here.",
+		"tagline": "The bay is on the left. Keep the VIP frontage spotless -- and watch for the Cozumel ferry.",
+		# The beach club's frontage, from its daybeds down to the water, on the
+		# RIGHT -- the far side from the skip. Seaweed there costs triple.
+		"vip": {
+			"x0": 205.0,
+			"x1": 348.0,
+			"weight": 3.0,
+		},
+		# The Cozumel ferry: every ~55s its slanted wake sweeps along the beach,
+		# carrying HALF of the drifting seaweed ashore as it goes.
+		"ferry": {
+			"first": 35.0,
+			"every": 55.0,
+			"speed": 90.0,
+			"angle": 20.0,
+			"lane_y": 565.0,
+			# Share of the drifting seaweed each wake carries, by shift. Shift 1
+			# is on foot, and a flat 50% was an instant loss there; the later
+			# shifts have the tractor and deep-water gear to cope.
+			"share": [0.2, 0.3, 0.6, 0.8],
+		},
 		"background": "res://assets/sprites/background_level3.png",
 		"water": "res://assets/sprites/water3_%02d.png",
 		"zones": {
@@ -79,7 +99,21 @@ const LIST := {
 	},
 	4: {
 		"name": "Cozumel",
-		"tagline": "The night shift. Work by torchlight.",
+		"tagline": "The night shift. Work by lantern light -- and watch for the moon.",
+		# Fog of war: a lantern on foot, headlights on the tractor, phone glows
+		# on the tourists, and the moon breaking through now and then.
+		"night": {
+			"darkness": 0.86,
+			"lantern": 62.0,
+			"headlights": 110.0,
+			"phone": 20.0,
+			"bay_light": 58.0,
+			# torches found in the art, plus the glowing pool
+			"lights": [[104, 93, 46], [176, 144, 46], [32, 142, 46], [125, 125, 40]],
+			"moon_first": 45.0,
+			"moon_every": 70.0,
+			"moon_len": 9.0,
+		},
 		"background": "res://assets/sprites/background_level4.png",
 		"water": "res://assets/sprites/water4_%02d.png",
 		"zones": {

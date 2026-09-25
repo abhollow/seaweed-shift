@@ -1,6 +1,6 @@
 # Level 2 -- Veracruz
 
-**Status: fourth pass -- art redrawn so the scenery blows the same way as the wind. Awaiting playtest.**
+**Status: APPROVED after playtest.** Sway fixed afterwards (see below).
 
 ## Why this level matters
 
@@ -108,6 +108,18 @@ The mask (`assets/sprites/sway_level2.png`) is built by
 the bunting and bushes at the promenade, and the swing margin around them
 dragged the building walls along -- the houses wobbled. It is now cut off above
 the rooftops (`--below 62`).
+
+### The sway stopped a few minutes in, on the phone
+
+The shader was given elapsed seconds and computed sin(t x speed). Phone GPUs
+often run fragment shaders at half precision, where a growing t can only change
+in coarse steps -- 4 updates a second after five minutes, 2 after ten -- so the
+sway degraded into stillness mid-shift. It looked perfect on desktop. Gusts made
+it worse: changing the speed with a large t jumped the phase, turning gusts into
+flicker. The phase is now accumulated on the CPU and wrapped to 0..2pi
+(`Game.sway_step`), and a test runs an hour of frames to guard it.
+
+**Rule for any future shader: never pass raw elapsed time. Pass a wrapped phase.**
 
 ## Deliberately NOT done yet (candidates for iteration)
 

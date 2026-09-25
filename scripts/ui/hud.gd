@@ -302,6 +302,17 @@ func _refresh_status(rep: Reputation, player: Player) -> void:
 		return
 	_lbl_status.add_theme_color_override("font_color", Color(1.0, 0.86, 0.55))
 
+	# Level warnings, below the failure countdown but above everything else.
+	if game.ferry != null and game.ferry.inbound():
+		_lbl_status.text = "FERRY INBOUND -- WAKE COMING"
+		return
+	if game.vip != null and game.vip.visible and game.vip_units() > 0:
+		_lbl_status.text = "SEAWEED IN THE VIP AREA"
+		return
+	if game.night != null and game.night.moonlit():
+		_lbl_status.text = "THE CLOUDS PART -- LOOK AROUND"
+		return
+
 	if player.in_safe_zone:
 		_lbl_status.text = "Loading bay -- safe"
 	elif game.happy_hour:

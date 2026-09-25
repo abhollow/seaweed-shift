@@ -91,6 +91,9 @@ func shore_mess() -> float:
 		# threshold. A browning pile is a small, growing problem you can see
 		# coming, so triage is a running decision instead of a cliff.
 		var w := 1.0 + (ROT_WEIGHT - 1.0) * sw.rot_progress()
+		# Seaweed in front of a beach club's VIP guests counts extra.
+		if game.in_vip(sw.position):
+			w *= game.vip_weight
 		mess += float(sw.units) * w
 		if sw.is_rotten():
 			rotten_piles += 1

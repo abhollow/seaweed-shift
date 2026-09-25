@@ -99,6 +99,10 @@ var spawner: Spawner
 var weather: Weather
 var wind: Wind
 var level_intro: LevelIntro
+var ferry: Ferry
+var vip: VipZone
+var vip_weight := 1.0
+var night: Night
 var rep: Reputation
 var hud: Hud
 var shop: Shop
@@ -122,7 +126,7 @@ var _bay: Area2D
 var _bay_rect: RectangleShape2D
 var _bay_bin: Sprite2D
 var _sway_mat: ShaderMaterial
-var _sway_t := 0.0
+var _sway_phase := 0.0
 const SWAY_SHADER := preload("res://shaders/sway.gdshader")
 
 
@@ -154,10 +158,13 @@ func _process(delta: float) -> void:
 	spawner.tick(delta)
 	weather.tick(delta)
 	wind.tick(delta)
+	ferry.tick(delta)
+	night.tick(delta)
 	if _sway_mat != null:
-		_sway_t += delta
-		_sway_mat.set_shader_parameter("t", _sway_t)
-		_sway_mat.set_shader_parameter("gust", wind.gust_shape())
+		var g: float = wind.gust_shape()
+		_sway_phase = sway_step(_sway_phase, delta, g)
+		_sway_mat.set_shader_parameter("phase", _sway_phase)
+		_sway_mat.set_shader_parameter("gust", g)
 	rep.tick(delta)
 	_tick_water(delta)
 	shift_elapsed += delta
@@ -430,6 +437,25 @@ func _build_systems() -> void:
 	wind = Wind.new()
 	wind.game = self
 	add_child(wind)
+
+	# Level props that live in the world: the VIP rope sits on the sand under
+	# the sprites, the ferry out on the water.
+	vip = VipZone.new()
+	vip.game = self
+	vip.z_index = -5
+	world.add_child(vip)
+
+	ferry = Ferry.new()
+	ferry.game = self
+	ferry.z_index = -2
+	world.add_child(ferry)
+
+	# Darkness sits above every sprite on the beach but below the weather, the
+	# popups and the HUD -- so "+cr" and the strip at the bottom stay readable.
+	night = Night.new()
+	night.game = self
+	night.z_index = 50
+	world.add_child(night)
 
 
 # =============================================================================
@@ -730,6 +756,12 @@ func next_shift() -> void:
 	level_panel.show_retain(options)
 
 
+static func sway_step(phase: float, delta: float, gust: float) -> float:
+	# Advance the sway's phase at a speed that rises with the gust, wrapped to
+	# 0..2pi so the shader never sees a large number. See sway.gdshader for why.
+	return fposmod(phase + delta * (1.8 + 2.6 * gust), TAU)
+
+
 static func make_sway_material(beach: Dictionary) -> ShaderMaterial:
 	var sway: Dictionary = beach.get("sway", {})
 	var path := String(sway.get("mask", ""))
@@ -738,7 +770,7 @@ static func make_sway_material(beach: Dictionary) -> ShaderMaterial:
 	var mat := ShaderMaterial.new()
 	mat.shader = SWAY_SHADER
 	mat.set_shader_parameter("sway_mask", load(path))
-	mat.set_shader_parameter("amp", float(sway.get("amp", 1.3)))
+	mat.set_shader_parameter("amp", float(sway.get("amp", 1.4)))
 	mat.set_shader_parameter("lean", float(sway.get("lean", 1.0)))
 	return mat
 
@@ -779,6 +811,21 @@ func apply_beach() -> void:
 	Zones.apply(beach)
 	if wind != null:
 		wind.configure(beach)
+	if ferry != null:
+		ferry.configure(beach)
+	if night != null:
+		night.configure(beach)
+	# The VIP frontage runs from the club down to the waterline, so its height
+	# comes from this beach's zones rather than being fixed.
+	var v: Dictionary = beach.get("vip", {})
+	vip_weight = float(v.get("weight", 1.0))
+	if vip != null:
+		if v.is_empty():
+			vip.configure(Rect2())
+		else:
+			var x0 := float(v.get("x0", 0.0))
+			var x1 := float(v.get("x1", 0.0))
+			vip.configure(Rect2(x0, Zones.HOTEL_BOTTOM, x1 - x0, Zones.SHALLOW_TOP - Zones.HOTEL_BOTTOM))
 
 	# Painted foliage that moves: a shader on the background, only on beaches
 	# that ship a sway mask. Everywhere else the background has no material.
@@ -865,6 +912,20 @@ func retain_and_advance(id: String) -> void:
 	begin_level()
 	_save_progress()
 	show_level_intro()
+
+
+func in_vip(pos: Vector2) -> bool:
+	return vip != null and vip.visible and vip.rect.has_point(pos)
+
+
+func vip_units() -> int:
+	var n := 0
+	for c in world.get_children():
+		if c is Seaweed:
+			var sw := c as Seaweed
+			if not sw.kelp and not sw.drifting and in_vip(sw.position):
+				n += sw.units
+	return n
 
 
 func show_level_intro() -> void:

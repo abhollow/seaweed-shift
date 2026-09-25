@@ -18,6 +18,7 @@ const SOUNDS := {
 	"package": "res://audio/package.mp3",
 	"hit": "res://audio/hit.wav",
 	"gust": "res://audio/gust.wav",
+	"horn": "res://audio/horn.wav",
 	"rot": "res://audio/rot.mp3",
 	"warn": "res://audio/warn.mp3",
 	"complete": "res://audio/complete.mp3",
