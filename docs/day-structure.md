@@ -122,3 +122,18 @@ to avoid is anything that tests reaction speed — frantic is the wrong directio
 2. Then level 2's backdrop, music and first new event.
 3. Tune the level multiplier by playing, not by estimate — shift 1 on foot is the
    calibration point the player has confirmed feels right.
+
+
+## Level-by-level process (agreed)
+
+Each level goes through the same loop before the next begins: brainstorm how it
+looks and plays -- what is different, its events, its challenges -- build a
+first playable version, playtest, revise, and approve. Mechanics are built per
+level as each is reached, rather than all at once: every mechanic changes once
+it is played, so building eight blind would mean building eight things twice.
+
+Each level's rundown lives in `docs/levels/NN-name.md`.
+
+Every level opens on an **intro card** -- the location in the wordmark's type
+over its own art, a line on what is different here, and START SHIFT! -- so a new
+location is a moment the player sees, and a new rule arrives with warning.

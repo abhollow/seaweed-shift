@@ -10,6 +10,7 @@ extends Node
 
 # --- tuning -----------------------------------------------------------------
 const STORM_EVERY := 120.0
+const STORM_GRACE := 25.0
 const STORM_LENGTH := 14.0
 const HAPPY_EVERY := 300.0
 const HAPPY_LENGTH := 30.0
@@ -85,6 +86,11 @@ func reset() -> void:
 		game.audio.stop_ambience(0.4)
 
 
+func storms_allowed() -> bool:
+	var needs := String(Beaches.for_level(game.level).get("storms_need", ""))
+	return needs == "" or game.owned.has(needs)
+
+
 func tick(delta: float) -> void:
 	_tick_storm(delta)
 	_tick_happy_hour(delta)
@@ -126,7 +132,17 @@ func _tick_storm(delta: float) -> void:
 
 	_storm_t += delta
 	# One event at a time. If Happy Hour is running the storm simply waits.
-	if _storm_t >= STORM_EVERY and not game.happy_hour:
+	# A level can hold storms back until the player owns the gear to cope. On
+	# Veracruz a storm on foot, on top of the wind, dumped more seaweed than
+	# anyone could clear -- so there, storms wait for the tractor.
+	#
+	# The timer is held 25s SHORT of a storm rather than at the threshold: at
+	# the threshold, buying the tractor set off a storm the very next frame,
+	# which reads as a punishment for upgrading. This way the first storm comes
+	# about 25s after the tractor -- a moment to enjoy it first.
+	if not storms_allowed():
+		_storm_t = minf(_storm_t, STORM_EVERY - STORM_GRACE)
+	if _storm_t >= STORM_EVERY and not game.happy_hour and storms_allowed():
 		_storm_t = 0.0
 		game.storm_active = true
 		_storm_left = STORM_LENGTH

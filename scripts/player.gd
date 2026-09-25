@@ -54,7 +54,8 @@ var shallow_y := 400.0
 var deep_y := 560.0
 var min_y := 270.0             # top of the beach strip
 var max_y := 548.0
-var bay_x := 268.0             # right of this, the loading bay driveway opens up
+var bay_x0 := 286.0            # the loading bay driveway spans bay_x0..bay_x1
+var bay_x1 := 352.0
 var bay_min_y := 220.0
 
 # Drop a PNG onto any of these in the Inspector and that upgrade state starts
@@ -188,6 +189,29 @@ func _apply_jacket() -> void:
 		_jacket_mat.set_shader_parameter("enabled", _jacket_owned and not on_vehicle)
 
 
+# How much of the wind reaches the player. Standing still, you brace against it
+# and only creep; moving, you are pushed fully -- quicker downwind, slower up.
+# A tractor is heavy enough to shrug most of it off, which makes the upgrade
+# feel different on this level rather than merely faster.
+const WIND_MOVING := 1.0
+const WIND_IDLE := 0.3
+const WIND_VEHICLE := 0.45
+# Footing is worse in the water: wading into a gust is where it bites hardest,
+# so kelp runs on a windy beach want timing between gusts.
+const WIND_WADING := 1.3
+
+
+func wind_push(moving: bool) -> float:
+	if game == null or game.wind == null:
+		return 0.0
+	var k := WIND_MOVING if moving else WIND_IDLE
+	if on_vehicle:
+		k *= WIND_VEHICLE
+	elif in_water():
+		k *= WIND_WADING
+	return float(game.wind.force()) * k
+
+
 func in_water() -> bool:
 	return position.y >= Zones.SHALLOW_TOP
 
@@ -317,6 +341,7 @@ func _physics_process(delta: float) -> void:
 
 	var dir: Vector2 = joystick.direction if joystick != null else Vector2.ZERO
 	velocity = dir * current_speed()
+	velocity.x += wind_push(dir.length() > 0.05)
 	move_and_slide()
 
 	# One sprite serves both directions. The deadzone means drifting straight up
@@ -334,7 +359,8 @@ func _physics_process(delta: float) -> void:
 
 	position.x = clampf(position.x, 16.0, 344.0)
 
-	# The loading bay is a driveway cut into the hotel grounds on the right, so
-	# the player can go further up the screen there than anywhere else.
-	var top := bay_min_y if position.x > bay_x else min_y
+	# The loading bay is a driveway cut into the hotel grounds, so across its
+	# width the player can go further up the screen than anywhere else. Which
+	# side it sits on is per level.
+	var top := bay_min_y if (position.x > bay_x0 and position.x < bay_x1) else min_y
 	position.y = clampf(position.y, top, max_y)

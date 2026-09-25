@@ -35,6 +35,14 @@ const FLECK_SPEED_MIN := 26.0
 const FLECK_SPEED_MAX := 74.0
 const FLECK_BLINK := 3.2
 
+# Wind streaks: blowing sand and spray, drawn across the whole beach. The
+# player has to SEE the wind to understand why they are drifting -- the art's
+# painted streaks are static, so these are what make it read as moving air.
+const STREAKS := 54
+const STREAKS_CALM := 16         # how many show between gusts
+const STREAK_SPEED := 190.0
+const STREAK_COLOR := Color(0.94, 0.92, 0.86, 0.34)
+
 # Club beat, driving both the fleck throb and the exposure pulse.
 const BEAT_HZ := 2.6
 const BEAT_DEPTH := 0.05
@@ -52,6 +60,7 @@ var game
 
 var _drops: Array = []
 var _flecks: Array = []
+var _streaks: Array = []
 var _t := 0.0
 var _ball: Sprite2D
 var _ball_frame := -1
@@ -90,6 +99,13 @@ func _ready() -> void:
 
 	for i in FLECKS:
 		_flecks.append(_new_fleck(randf() * TAU))
+
+	for i in STREAKS:
+		_streaks.append({
+			"pos": Vector2(randf() * Zones.VIEW_W, randf_range(Zones.HOTEL_BOTTOM - 30.0, Zones.VIEW_H)),
+			"len": randf_range(10.0, 26.0),
+			"k": randf_range(0.7, 1.35),
+		})
 
 
 func _new_fleck(phase: float) -> Dictionary:
@@ -175,7 +191,18 @@ func _process(delta: float) -> void:
 			elif f["pos"].y > Zones.VIEW_H + 20.0:
 				f["pos"].y = Zones.HOTEL_BOTTOM - 40.0
 
-	var active := storm or disco
+	var windy: bool = game != null and game.wind != null and game.wind.active()
+	if windy:
+		var push: float = float(game.wind.force())
+		for st in _streaks:
+			var v: float = (STREAK_SPEED + push * 4.0) * float(st["k"])
+			st["pos"].x += v * delta
+			st["pos"].y -= v * 0.12 * delta
+			if st["pos"].x > Zones.VIEW_W + 30.0 or st["pos"].y < Zones.HOTEL_BOTTOM - 40.0:
+				st["pos"] = Vector2(randf_range(-40.0, -4.0),
+					randf_range(Zones.HOTEL_BOTTOM - 10.0, Zones.VIEW_H + 20.0))
+
+	var active := storm or disco or windy
 	if active or _was_active:
 		# The trailing redraw matters: without it the last frame of rain and
 		# flecks stays painted on screen after the event ends, because nothing
@@ -186,6 +213,16 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
+	if game != null and game.wind != null and game.wind.active():
+		var g: float = float(game.wind.gust_shape())
+		var shown := int(STREAKS_CALM + (STREAKS - STREAKS_CALM) * g)
+		for i in shown:
+			var st: Dictionary = _streaks[i]
+			var p: Vector2 = st["pos"]
+			var c := STREAK_COLOR
+			c.a *= 0.55 + 0.45 * g
+			var l: float = float(st["len"]) * (1.0 + 0.6 * g)
+			draw_line(p, p + Vector2(-l, l * 0.12), c, 1.0)
 	if game != null and game.storm_active:
 		for d in _drops:
 			var p: Vector2 = d["pos"]

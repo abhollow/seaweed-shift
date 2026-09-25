@@ -215,7 +215,10 @@ func _tick_tourists(delta: float) -> void:
 	var t: Tourist = TOURIST_SCENE.instantiate()
 	t.game = game
 	# Straight coin flip, during Happy Hour as well as ordinary trickle.
-	t.setup(Vector2(randf_range(30.0, 330.0), Zones.TOURIST_SPAWN_Y),
+	# On a windy beach, arrive a little upwind, so gusts carry tourists ACROSS
+	# the sand rather than into the downwind corner -- where the bay is.
+	var hi := 330.0 - (70.0 if (game.wind != null and game.wind.active()) else 0.0)
+	t.setup(Vector2(randf_range(30.0, hi), Zones.TOURIST_SPAWN_Y),
 		target, game.happy_hour, Zones.TOURIST_DESPAWN_Y, randf() < 0.5)
 	game.world.add_child(t)
 

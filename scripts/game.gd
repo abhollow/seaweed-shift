@@ -97,6 +97,8 @@ var joystick: Joystick
 
 var spawner: Spawner
 var weather: Weather
+var wind: Wind
+var level_intro: LevelIntro
 var rep: Reputation
 var hud: Hud
 var shop: Shop
@@ -116,6 +118,12 @@ var _water_t := 0.0
 var _water_frame := -1
 var _shake_tw: Tween
 var _bg_sprite: Sprite2D
+var _bay: Area2D
+var _bay_rect: RectangleShape2D
+var _bay_bin: Sprite2D
+var _sway_mat: ShaderMaterial
+var _sway_t := 0.0
+const SWAY_SHADER := preload("res://shaders/sway.gdshader")
 
 
 func _ready() -> void:
@@ -138,11 +146,18 @@ func _ready() -> void:
 	apply_beach()
 	begin_level()
 	hud.refresh()
+	if level_index == 0 and not free_play:
+		show_level_intro()
 
 
 func _process(delta: float) -> void:
 	spawner.tick(delta)
 	weather.tick(delta)
+	wind.tick(delta)
+	if _sway_mat != null:
+		_sway_t += delta
+		_sway_mat.set_shader_parameter("t", _sway_t)
+		_sway_mat.set_shader_parameter("gust", wind.gust_shape())
 	rep.tick(delta)
 	_tick_water(delta)
 	shift_elapsed += delta
@@ -186,8 +201,7 @@ func _build_world() -> void:
 	player.deep_y = Zones.DEEP_TOP
 	player.min_y = Zones.HOTEL_BOTTOM + 10.0
 	player.max_y = Zones.DEEP_TOP - 12.0
-	player.bay_x = Zones.BAY_POS.x - Zones.BAY_SIZE.x / 2.0 + 6.0
-	player.bay_min_y = Zones.BAY_POS.y - Zones.BAY_SIZE.y / 2.0 + 18.0
+	_apply_bay_bounds()
 	world.add_child(player)
 
 
@@ -260,12 +274,14 @@ func _band(y0: float, y1: float, c: Color, tex: Texture2D = null) -> void:
 
 func _build_bay() -> void:
 	var bay := Area2D.new()
+	_bay = bay
 	bay.position = Zones.BAY_POS
 
 	var shape := CollisionShape2D.new()
 	var rect := RectangleShape2D.new()
 	rect.size = Zones.BAY_SIZE
 	shape.shape = rect
+	_bay_rect = rect
 	bay.add_child(shape)
 
 	# The safe zone itself is invisible -- the background art already reads as a
@@ -283,8 +299,10 @@ func _build_bay() -> void:
 	if tex_bin != null:
 		var bin_spr := Sprite2D.new()
 		bin_spr.texture = tex_bin
-		# Pushed well right, hard against the bay's outer edge.
-		bin_spr.position = Vector2(26, 0)
+		_bay_bin = bin_spr
+		# Pushed hard against the bay's OUTER wall -- right on most beaches,
+		# left where a level puts the bay on the left.
+		bin_spr.position = Vector2(_bin_offset(), 0)
 		var bt := tex_bin.get_size()
 		if bt.x > 0.0 and bt.y > 0.0:
 			bin_spr.scale = Vector2(Zones.BIN_SIZE.x / bt.x, Zones.BIN_SIZE.y / bt.y)
@@ -370,6 +388,17 @@ func _build_ui() -> void:
 	add_child(hud)
 	hud.build()
 
+	# The level intro sits above everything, and keeps working while the game
+	# is paused behind it.
+	var intro_layer := CanvasLayer.new()
+	intro_layer.layer = 40
+	intro_layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(intro_layer)
+	level_intro = LevelIntro.new()
+	level_intro.game = self
+	intro_layer.add_child(level_intro)
+	level_intro.build()
+
 	shop = Shop.new()
 	shop.game = self
 	hud.add_child(shop)
@@ -397,6 +426,10 @@ func _build_systems() -> void:
 	fx = WeatherFx.new()
 	fx.game = self
 	world.add_child(fx)
+
+	wind = Wind.new()
+	wind.game = self
+	add_child(wind)
 
 
 # =============================================================================
@@ -540,7 +573,10 @@ func begin_level() -> void:
 	spawner.reset()
 
 	if audio != null:
-		audio.play_playlist(lv.get("music", DEFAULT_MUSIC), MUSIC_DB)
+		# A level's own soundtrack wins over the shift's. Each location should
+		# sound like somewhere new -- tracks that did not play on earlier beaches.
+		var beach := Beaches.for_level(level)
+		audio.play_playlist(beach.get("music", lv.get("music", DEFAULT_MUSIC)), MUSIC_DB)
 
 	player.position = Zones.BAY_POS
 	player.in_safe_zone = true
@@ -694,6 +730,45 @@ func next_shift() -> void:
 	level_panel.show_retain(options)
 
 
+static func make_sway_material(beach: Dictionary) -> ShaderMaterial:
+	var sway: Dictionary = beach.get("sway", {})
+	var path := String(sway.get("mask", ""))
+	if path == "" or not ResourceLoader.exists(path):
+		return null
+	var mat := ShaderMaterial.new()
+	mat.shader = SWAY_SHADER
+	mat.set_shader_parameter("sway_mask", load(path))
+	mat.set_shader_parameter("amp", float(sway.get("amp", 1.3)))
+	mat.set_shader_parameter("lean", float(sway.get("lean", 1.0)))
+	return mat
+
+
+func _bay_on_left() -> bool:
+	return Zones.BAY_POS.x < Zones.VIEW_W / 2.0
+
+
+func _bin_offset() -> float:
+	return -26.0 if _bay_on_left() else 26.0
+
+
+func _apply_bay_bounds() -> void:
+	# The driveway: across the bay's width, the player may walk further up the
+	# screen than anywhere else, into the hotel band where the skip sits. The
+	# INNER edge (facing the rest of the beach) is inset slightly; the outer
+	# edge runs to the wall, as the original right-hand bay always did.
+	if player == null:
+		return
+	var left := Zones.BAY_POS.x - Zones.BAY_SIZE.x / 2.0
+	var right := Zones.BAY_POS.x + Zones.BAY_SIZE.x / 2.0
+	if _bay_on_left():
+		player.bay_x0 = left - 10.0
+		player.bay_x1 = right - 6.0
+	else:
+		player.bay_x0 = left + 6.0
+		player.bay_x1 = right + 10.0
+	player.bay_min_y = Zones.BAY_POS.y - Zones.BAY_SIZE.y / 2.0 + 18.0
+
+
 func apply_beach() -> void:
 	# Move the world onto this level's beach. Everything that was built ONCE
 	# from the zone values has to be refreshed here: the background, the
@@ -702,6 +777,14 @@ func apply_beach() -> void:
 	# seaweed beaches) picks the new values up on its own.
 	var beach := Beaches.for_level(level)
 	Zones.apply(beach)
+	if wind != null:
+		wind.configure(beach)
+
+	# Painted foliage that moves: a shader on the background, only on beaches
+	# that ship a sway mask. Everywhere else the background has no material.
+	_sway_mat = make_sway_material(beach)
+	if _bg_sprite != null:
+		_bg_sprite.material = _sway_mat
 
 	var bg_path := String(beach.get("background", ""))
 	if _bg_sprite != null and bg_path != "" and ResourceLoader.exists(bg_path):
@@ -734,6 +817,15 @@ func apply_beach() -> void:
 				(b as Sprite2D).position.y = Zones.DEEP_TOP
 			elif b is ColorRect:
 				(b as ColorRect).position.y = Zones.DEEP_TOP - 4.0
+
+	# The bay can move between levels -- Playa del Carmen puts it on the left.
+	if _bay != null:
+		_bay.position = Zones.BAY_POS
+		if _bay_rect != null:
+			_bay_rect.size = Zones.BAY_SIZE
+		if _bay_bin != null:
+			_bay_bin.position.x = _bin_offset()
+	_apply_bay_bounds()
 
 	if player != null:
 		player.shallow_y = Zones.SHALLOW_TOP
@@ -772,6 +864,23 @@ func retain_and_advance(id: String) -> void:
 	apply_beach()
 	begin_level()
 	_save_progress()
+	show_level_intro()
+
+
+func show_level_intro() -> void:
+	# Holds the game until the player chooses to start. Not shown when a failed
+	# shift is retried -- only when a level genuinely begins.
+	if level_intro == null:
+		return
+	get_tree().paused = true
+	joystick.active = false
+	level_intro.show_for(level)
+
+
+func start_from_intro() -> void:
+	level_intro.visible = false
+	get_tree().paused = false
+	joystick.active = true
 
 
 # =============================================================================

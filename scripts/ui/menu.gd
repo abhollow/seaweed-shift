@@ -46,6 +46,7 @@ const FADE_OUT := 0.35
 
 var _settings := {}
 var _settings_panel: PanelContainer
+var _level_panel: PanelContainer
 var _continue_btn: Button
 var _new_btn: Button
 var _new_armed := false
@@ -275,6 +276,67 @@ func _on_new_game() -> void:
 	_start(true)
 
 
+func _build_level_panel() -> void:
+	_level_panel = UiTheme.panel(PanelContainer.new())
+	_level_panel.position = Vector2(20, 90)
+	_level_panel.size = Vector2(320, 460)
+	_level_panel.visible = false
+	add_child(_level_panel)
+
+	var margin := MarginContainer.new()
+	for side in ["left", "right", "top", "bottom"]:
+		margin.add_theme_constant_override("margin_" + side, 14)
+	_level_panel.add_child(margin)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	margin.add_child(box)
+
+	var title := Label.new()
+	title.text = "LEVEL SELECT  (DEV)"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 16)
+	title.add_theme_color_override("font_color", UiTheme.ACCENT)
+	box.add_child(title)
+
+	var note := Label.new()
+	note.text = "Starts shift 1 with no upgrades. Overwrites your save. * = no beach art yet, plays on Cancun."
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.custom_minimum_size = Vector2(288, 0)
+	note.add_theme_font_size_override("font_size", 11)
+	note.add_theme_color_override("font_color", UiTheme.TEXT_DIM)
+	box.add_child(note)
+
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+	box.add_child(grid)
+	for lv in range(1, Beaches.NAMES.size() + 1):
+		var b := UiTheme.button(Button.new())
+		b.text = "%d  %s%s" % [lv, Beaches.name_of(lv), "" if Beaches.has_art(lv) else " *"]
+		b.custom_minimum_size = Vector2(140, 40)
+		b.add_theme_font_size_override("font_size", 12)
+		b.clip_text = true
+		b.pressed.connect(_jump_to_level.bind(lv))
+		grid.add_child(b)
+
+	var back := UiTheme.button(Button.new())
+	back.text = "BACK"
+	back.custom_minimum_size = Vector2(0, 40)
+	back.pressed.connect(func(): _show_levels(false))
+	box.add_child(back)
+
+
+func _show_levels(v: bool) -> void:
+	if _level_panel == null:
+		_build_level_panel()
+	_settings_panel.visible = not v
+	if v:
+		UiTheme.present(_level_panel)
+	else:
+		_level_panel.visible = false
+
+
 func _jump_to_level(n: int) -> void:
 	# Writes a save that starts level n at shift 1 with nothing owned, then
 	# continues it -- the same path a real rollover lands on. Overwrites the
@@ -287,6 +349,8 @@ func _jump_to_level(n: int) -> void:
 		"level_index": 0,
 		"free_play": false,
 	})
+	if _level_panel != null:
+		_level_panel.visible = false
 	_show_settings(false)
 	_start(false)
 
@@ -312,7 +376,7 @@ func _start(fresh: bool) -> void:
 func _build_settings_panel() -> void:
 	_settings_panel = UiTheme.panel(PanelContainer.new())
 	_settings_panel.position = Vector2(24, 150)
-	_settings_panel.size = Vector2(312, 384)
+	_settings_panel.size = Vector2(312, 380)
 	_settings_panel.visible = false
 	add_child(_settings_panel)
 
@@ -346,24 +410,15 @@ func _build_settings_panel() -> void:
 	reset.pressed.connect(_on_reset.bind(reset))
 	box.add_child(reset)
 
-	# Playtesting shortcut: jump straight to any level that has its own beach.
-	# Debug builds only -- a release build never shows it, so it cannot leak
-	# into the shipped game. The Android APK you side-load IS a debug build.
+	# Playtesting shortcut. Debug builds only -- a release build never shows it,
+	# so it cannot leak into the shipped game. The side-loaded APK IS a debug
+	# build, which is exactly where it is needed.
 	if OS.is_debug_build():
-		var jump := HBoxContainer.new()
-		jump.add_theme_constant_override("separation", 6)
-		box.add_child(jump)
-		var lbl := Label.new()
-		lbl.text = "TEST LEVEL"
-		lbl.add_theme_font_size_override("font_size", 12)
-		lbl.add_theme_color_override("font_color", Color(0.98, 0.82, 0.45))
-		jump.add_child(lbl)
-		for lv in Beaches.LIST.keys():
-			var jb := UiTheme.button(Button.new())
-			jb.text = str(lv)
-			jb.custom_minimum_size = Vector2(38, 34)
-			jb.pressed.connect(_jump_to_level.bind(int(lv)))
-			jump.add_child(jb)
+		var dev := UiTheme.button(Button.new())
+		dev.text = "DEV: LEVEL SELECT"
+		dev.custom_minimum_size = Vector2(0, 40)
+		dev.pressed.connect(func(): _show_levels(true))
+		box.add_child(dev)
 
 	var back := UiTheme.button(Button.new())
 	back.text = "BACK"

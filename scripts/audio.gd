@@ -17,6 +17,7 @@ const SOUNDS := {
 	"purchase": "res://audio/purchase.mp3",
 	"package": "res://audio/package.mp3",
 	"hit": "res://audio/hit.wav",
+	"gust": "res://audio/gust.wav",
 	"rot": "res://audio/rot.mp3",
 	"warn": "res://audio/warn.mp3",
 	"complete": "res://audio/complete.mp3",
@@ -50,6 +51,10 @@ var music_path := ""           # what's on the music player right now
 var _playlist: Array[String] = []
 var _play_idx := 0
 var _crossfading := false
+# Set while the shift-complete sting plays. The Audio node keeps processing
+# through a paused tree (so fades survive panels), which means that without this
+# a song ending mid-sting would advance the playlist and start the next track.
+var _music_paused := false
 
 # Two players so the outgoing track can still be sounding while the incoming
 # one comes up. With a single player there is no way to overlap, which is what
@@ -210,6 +215,7 @@ func play_event(path: String, volume_db: float = -5.0, fade: float = 1.0) -> voi
 	_event.stream = stream
 	_event.volume_db = volume_db - 20.0
 	_event.play()
+	_event.stream_paused = _music_paused
 
 	_event_tw = _music_tween()
 	_event_tw.tween_property(_event, "volume_db", volume_db, fade)
@@ -362,6 +368,7 @@ func _begin_track(idx: int, fade: float) -> void:
 	p.stream = stream
 	p.volume_db = music_base_db + MUSIC_SILENCE_DB
 	p.play()
+	p.stream_paused = _music_paused
 
 	_active = next_i
 	_music = p
@@ -382,6 +389,8 @@ func _advance() -> int:
 
 
 func _on_track_finished(which: int) -> void:
+	if _music_paused:
+		return
 	# Normally the crossfade has already moved on and this is just the outgoing
 	# player going quiet. It only matters if the ACTIVE track ran out without a
 	# crossfade -- a track shorter than the overlap window, say.
@@ -391,6 +400,8 @@ func _on_track_finished(which: int) -> void:
 
 
 func _process(_delta: float) -> void:
+	if _music_paused:
+		return
 	# Start the next track before this one ends so the two overlap and there is
 	# never silence between songs. Driven off playback position because
 	# AudioStreamPlayer has no "about to finish" signal.
@@ -443,6 +454,7 @@ func pause_music(on: bool) -> void:
 	# so ducking MusicTrack left Happy Hour's music running at full volume. And
 	# the Music bus itself is what the player's volume slider sets, so ducking
 	# that would overwrite their setting. Pausing touches neither.
+	_music_paused = on
 	for p in _players:
 		p.stream_paused = on
 	if _event != null:

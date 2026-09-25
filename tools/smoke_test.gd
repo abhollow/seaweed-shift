@@ -72,6 +72,13 @@ func _run() -> void:
 
 	# --- boot -------------------------------------------------------------
 	print("[boot]")
+	check("a new game opens on the level intro", game.level_intro.visible)
+	check("the intro names the location",
+		game.level_intro._name.text == Beaches.name_of(1).to_upper())
+	check("the game waits behind the intro", paused)
+	game.start_from_intro()
+	await frames(3)
+	check("START SHIFT! begins play", not paused and not game.level_intro.visible)
 	check("starting a shift writes a save immediately",
 		not SaveGame.load_data().is_empty())
 	check("world built", game.world != null)
@@ -708,6 +715,8 @@ func _run() -> void:
 	check("shop is locked out after failing", game.toggle_shop() == null
 		and not game.shop.visible)
 	game.retry_shift()
+	check("retrying a failed shift does not replay the intro",
+		not game.level_intro.visible)
 	await sim(0.4)
 	check("retry rolls credits back to the shift start", game.credits == expect_credits)
 	check("retry clears the failure", not game.level_failed
@@ -738,9 +747,16 @@ func _run() -> void:
 	check("shift completed", game.level_done)
 	# The world gets the moment first -- shake and a banner -- and the panel
 	# arrives a beat later, so it must NOT be up immediately.
+	# A song ending during the sting must not start the next one.
+	game.audio._on_track_finished(game.audio._active)
+	await frames(3)
+	# Checks what is AUDIBLE, not the paused flags. A crossfade in flight keeps
+	# running through the pause and stop()s its outgoing player, which can reset
+	# that player's flag -- harmless, since a stopped player is silent. The old
+	# flag-based check failed on that roughly one run in five.
 	check("all music stops for the completion sting",
-		game.audio._players[0].stream_paused and game.audio._players[1].stream_paused
-			and game.audio._event.stream_paused)
+		not game.audio._players[0].playing and not game.audio._players[1].playing
+			and not game.audio._event.playing)
 	check("the panel waits a beat rather than snapping up",
 		not game.level_panel.visible)
 	await sim(1.2)
@@ -804,6 +820,9 @@ func _run() -> void:
 	game = load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
 	await frames(10)
+	if game.level_intro.visible:
+		game.start_from_intro()
+		await frames(2)
 	check("reloads the saved credits", game.credits == 4321)
 
 	game._save_progress()
@@ -911,12 +930,14 @@ func _run() -> void:
 
 	game.level = 2
 	game.apply_beach()
-	check("level 2 is Isla Mujeres",
-		String(Beaches.for_level(2)["name"]) == "Isla Mujeres")
-	check("Isla Mujeres has a narrower beach",
-		Zones.SHALLOW_TOP - Zones.HOTEL_BOTTOM < cancun_sand)
-	check("Isla Mujeres has wider shallows",
-		Zones.DEEP_TOP - Zones.SHALLOW_TOP > cancun_shallows)
+	check("level 2 is Veracruz",
+		String(Beaches.for_level(2)["name"]) == "Veracruz")
+	# Close to Cancun's shape: the wind is the one new thing on this level.
+	# Within 40px -- the redrawn art (wind-correct palms) came out with a beach
+	# about 14% narrower, which still reads as the same kind of beach.
+	check("Veracruz keeps a familiar beach so the wind is the new thing",
+		absf((Zones.SHALLOW_TOP - Zones.HOTEL_BOTTOM) - cancun_sand) < 40.0
+			and absf((Zones.DEEP_TOP - Zones.SHALLOW_TOP) - cancun_shallows) < 20.0)
 	check("the background swaps to the new beach",
 		game._bg_sprite.texture.resource_path.ends_with("background_level2.png"))
 	check("the animated water moves to the new waterline",
@@ -934,10 +955,45 @@ func _run() -> void:
 	check("seaweed still beaches on sand",
 		Zones.SHORE_Y > Zones.HOTEL_BOTTOM and Zones.SHORE_Y < Zones.SHALLOW_TOP)
 
-	game.level = 7
+	var l2_music: Array = Beaches.for_level(2).get("music", [])
+	check("Veracruz has its own soundtrack",
+		l2_music.size() == 3 and String(l2_music[0]).ends_with("Tropical_Tension_1.mp3"))
+	var l1_music: Array = Levels.LIST[0]["music"]
+	check("none of it repeats Cancun's tracks",
+		l2_music.all(func(t): return not l1_music.has(t)))
+
+	# Every level's geometry must be playable, whatever its art looks like.
+	var sane := true
+	var why := ""
+	for lv in range(1, 11):
+		game.level = lv
+		game.apply_beach()
+		var ok: bool = Zones.HOTEL_BOTTOM < Zones.SHORE_Y \
+			and Zones.SHORE_Y < Zones.SHALLOW_TOP \
+			and Zones.SHALLOW_TOP < Zones.DEEP_TOP and Zones.DEEP_TOP < Zones.VIEW_H \
+			and Zones.WATER_TOP < Zones.SHALLOW_TOP \
+			and Zones.BAY_POS.y - Zones.BAY_SIZE.y / 2.0 < Zones.HOTEL_BOTTOM \
+			and Zones.BAY_POS.y + Zones.BAY_SIZE.y / 2.0 > Zones.HOTEL_BOTTOM \
+			and Zones.TOURIST_SPAWN_Y < Zones.HOTEL_BOTTOM \
+			and game._bg_sprite.texture.resource_path.ends_with("background_level%d.png" % lv)
+		if not ok:
+			sane = false
+			why += " L%d" % lv
+	check("all ten levels have playable geometry and their own art" + why, sane)
+
+	game.level = 3
 	game.apply_beach()
-	check("a level with no art yet falls back to Cancun",
-		Zones.SHALLOW_TOP == 420.0)
+	check("Playa del Carmen puts the bay on the left",
+		game._bay.position.x < Zones.VIEW_W / 2.0)
+	check("the skip moves to the bay's outer, left wall",
+		game._bay_bin == null or game._bay_bin.position.x < 0.0)
+	check("the driveway opens on the left",
+		game.player.bay_x0 < 20.0 and game.player.bay_x1 < Zones.VIEW_W / 2.0)
+	game.level = 1
+	game.apply_beach()
+	check("back on Cancun the bay returns to the right",
+		game._bay.position.x > Zones.VIEW_W / 2.0
+			and (game._bay_bin == null or game._bay_bin.position.x > 0.0))
 
 	game.level = 1
 	game.apply_beach()
@@ -948,11 +1004,163 @@ func _run() -> void:
 	game.level = 1
 	game._load_progress()
 	game.apply_beach()
-	check("a saved level 2 loads onto the Isla Mujeres beach",
-		game.level == 2 and Zones.SHALLOW_TOP == 335.0)
+	check("a saved level 2 loads onto the Veracruz beach",
+		game.level == 2 and Zones.SHALLOW_TOP == 390.0)
 	game.level = 1
 	game.apply_beach()
 	SaveGame.wipe()
+
+	print("\n[wind]")
+	paused = false
+	var keep_owned: Dictionary = game.owned.duplicate()
+	game.owned.clear()
+	game._reset_player_stats()
+	game._recompute_carry()
+	game.level = 1
+	game.apply_beach()
+	check("Cancun is calm", not game.wind.active() and game.player.wind_push(true) == 0.0)
+	game.level = 2
+	game.apply_beach()
+	check("Veracruz has the norte", game.wind.active() and game.wind.force() > 0.0)
+	var base_f: float = game.wind.force()
+	var spd: float = game.player.current_speed()
+	var push: float = game.player.wind_push(true)
+	check("walking downwind is faster than walking into it",
+		spd + push > (spd - push) * 1.2)
+	check("standing still you brace, and only creep",
+		game.player.wind_push(false) > 0.0 and game.player.wind_push(false) < push * 0.5)
+	game.owned["waders"] = true
+	game.owned["tractor"] = true
+	game._recompute_carry()
+	check("a tractor shrugs off most of the wind", game.player.wind_push(true) < push * 0.6)
+	game.owned.clear()
+	game._recompute_carry()
+	game.wind.gusting = true
+	game.wind._gust_t = game.wind.gust_len * 0.5
+	check("a gust pushes harder than the steady wind", game.wind.force() > base_f * 1.8)
+	# The point of the retune: a peak gust on foot stops you dead.
+	var walk: float = game.player.current_speed()
+	check("walking into a peak gust on foot gets you nowhere",
+		walk - game.player.wind_push(true) <= walk * 0.1)
+	game.owned["waders"] = true
+	game.owned["tractor"] = true
+	game._recompute_carry()
+	check("a tractor can still drive into one",
+		game.player.current_speed() - game.player.wind_push(true) > 60.0)
+	game.owned.clear()
+	game._recompute_carry()
+	var dry_push: float = game.player.wind_push(true)
+	var py0: float = game.player.position.y
+	game.player.position.y = Zones.SHALLOW_TOP + 30.0
+	check("footing is worse in the water", game.player.wind_push(true) > dry_push)
+	game.player.position.y = py0
+
+	# Tourists: shoved by gusts, and they lean into them.
+	# Built directly, so these checks can never silently skip for want of a
+	# tourist on the beach.
+	var t: Tourist = Spawner.TOURIST_SCENE.instantiate()
+	t.game = game
+	game.world.add_child(t)
+	t.setup(Vector2(180, 300), 480.0, false, Zones.TOURIST_DESPAWN_Y)
+	await frames(1)
+	game.wind.gusting = true
+	game.wind._gust_t = game.wind.gust_len * 0.5
+	if true:
+		t.rowdy = false
+		t.position = Vector2(180, 300)
+		var tx: float = t.position.x
+		t._tick_gust(0.25)
+		check("a gust shoves tourists sideways", t.position.x > tx + 3.0)
+		check("and they lean into it", t.rotation < -0.05)
+		game.wind.gusting = false
+		t._tick_gust(0.25)
+		check("in the steady wind they stand straight and hold their line",
+			is_equal_approx(t.rotation, 0.0))
+		var tx2: float = t.position.x
+		t._tick_gust(0.25)
+		check("the steady wind alone does not move them", is_equal_approx(t.position.x, tx2))
+		t.queue_free()
+	# Measured over a WHOLE gust, not one frame: the one-frame checks above
+	# passed happily at a strength that carried tourists two-thirds of the way
+	# across the beach and pinned 39% of them against the bay wall.
+	var sweep := 0.0
+	var sweep_rowdy := 0.0
+	var steps := 200
+	for i in steps:
+		var g := sin(PI * (float(i) + 0.5) / float(steps))
+		var f: float = game.wind.strength * (1.0 + (game.wind.gust_mult - 1.0) * g)
+		var dt: float = game.wind.gust_len / float(steps)
+		sweep += f * g * Tourist.GUST_SHOVE * dt
+		sweep_rowdy += f * g * Tourist.GUST_SHOVE_ROWDY * dt
+	check("a gust staggers tourists without sweeping them off the beach",
+		sweep > 40.0 and sweep < 120.0 and sweep_rowdy < 180.0)
+	game.wind.gusting = false
+	check("gusts come round on their own", game.wind.gust_every > 0.0)
+
+	# The painted palms sway, driven by the same wind.
+	check("Veracruz's palms are animated", game._bg_sprite.material is ShaderMaterial)
+	var t0: float = float(game._sway_mat.get_shader_parameter("t"))
+	game.wind.gusting = true
+	game.wind._gust_t = game.wind.gust_len * 0.5
+	await frames(3)
+	check("the sway moves over time", float(game._sway_mat.get_shader_parameter("t")) > t0)
+	check("and whips harder in a gust", float(game._sway_mat.get_shader_parameter("gust")) > 0.5)
+	game.wind.gusting = false
+	game.level = 1
+	game.apply_beach()
+	check("a calm beach has no sway", game._bg_sprite.material == null)
+	game.level = 2
+	game.apply_beach()
+
+	# No storms on foot in Veracruz; they arrive a little after the tractor.
+	var keep_storm: bool = game.storm_active
+	game.storm_active = false
+	game.happy_hour = false
+	game.owned.erase("tractor")
+	game.weather._storm_t = Weather.STORM_EVERY + 10.0
+	game.weather._tick_storm(0.1)
+	check("Veracruz holds storms back while you are on foot", not game.storm_active)
+	check("and keeps the next one a little way off",
+		game.weather._storm_t <= Weather.STORM_EVERY - Weather.STORM_GRACE + 0.2)
+	game.owned["waders"] = true
+	game.owned["tractor"] = true
+	game.weather._tick_storm(0.1)
+	check("buying the tractor does not set one off instantly", not game.storm_active)
+	game.weather._storm_t = Weather.STORM_EVERY
+	game.weather._tick_storm(0.1)
+	check("once you have the tractor, storms come back", game.storm_active)
+	game.storm_active = keep_storm
+	game.owned.erase("tractor")
+	game.owned.erase("waders")
+	game.level = 1
+	game.apply_beach()
+	check("other levels storm on foot as before", game.weather.storms_allowed())
+	game.level = 2
+	game.apply_beach()
+	# floating seaweed slides downwind, and wraps rather than piling up
+	var raft: Seaweed = null
+	for c in game.world.get_children():
+		if c is Seaweed and (c as Seaweed).drifting:
+			raft = c
+			break
+	if raft == null:
+		raft = game.spawner._add_seaweed(Vector2(180, 560), 2, false, true)
+	raft.position = Vector2(180, 560)
+	var rx: float = raft.position.x
+	for i in 30:
+		raft._do_drift(0.1)
+	check("floating seaweed is blown along the coast", raft.position.x > rx + 4.0)
+	raft.position.x = 345.0
+	for i in 20:
+		raft._do_drift(0.1)
+	check("and wraps round instead of piling at one end", raft.position.x < 345.0)
+	game.owned = keep_owned
+	game._reset_player_stats()
+	for up in Upgrades.LIST:
+		if game.owned.has(String(up["id"])):
+			game.apply_upgrade(String(up["id"]))
+	game.level = 1
+	game.apply_beach()
 
 	print("\n[levels and retention]")
 	paused = false
@@ -987,6 +1195,10 @@ func _run() -> void:
 	game.owned["tractor"] = true
 	game.retain_and_advance("rake2")
 	check("the level advances", game.level == 2)
+	check("a new level opens on its intro card",
+		game.level_intro.visible and game.level_intro._name.text == "VERACRUZ")
+	check("and its palms sway on the card too", game.level_intro._bg.material is ShaderMaterial)
+	game.start_from_intro()
 	check("the kept upgrade is retained", game.retained.has("rake2"))
 	check("credits reset for the new level", game.credits == 0)
 	check("the new level starts at shift 1", game.level_index == 0)
@@ -1057,6 +1269,22 @@ func _run() -> void:
 	await sim(2.0)
 	check("clouds are actually drifting",
 		not is_equal_approx((menu._clouds[0]["node"] as TextureRect).position.x, cx))
+	check("all ten levels have a name", Beaches.NAMES.size() == 10)
+	menu._show_levels(true)
+	var level_btns := 0
+	var starred := 0
+	for c in menu._level_panel.find_children("*", "Button", true, false):
+		if String((c as Button).text).substr(0, 2).strip_edges().is_valid_int():
+			level_btns += 1
+			if String((c as Button).text).ends_with("*"):
+				starred += 1
+	check("the dev panel lists every level by name", level_btns == 10)
+	check("levels without beach art are marked", starred == 10 - Beaches.LIST.size())
+	check("every level has its own beach now", Beaches.LIST.size() == 10)
+	check("the level panel fits on screen",
+		menu._level_panel.position.y + menu._level_panel.size.y <= 640.0)
+	menu._show_levels(false)
+	menu._show_settings(false)
 	check("title is a baked wordmark, not live text",
 		menu._title != null and menu._title.texture != null)
 	check("title fits the screen and sits above the buttons",

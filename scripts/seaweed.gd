@@ -20,6 +20,9 @@ const ROT_TIME := 30.0     # fully rotten: half value, full reputation damage
 # clearing a closer one -- a decision the player can see and act on.
 const ROT_SPREAD_RADIUS := 44.0
 const ROT_SPREAD_RATE := 1.6
+
+# Share of the wind that moves floating seaweed sideways.
+const WIND_DRIFT := 0.25
 const ROT_COLOR := Color(0.45, 0.33, 0.14)
 
 var units := 1
@@ -304,7 +307,14 @@ func _do_drift(delta: float) -> void:
 	var wash: float = float(game.wash_speed()) if game != null else 1.0
 	position.y -= drift_speed * mult * wash * delta
 	position.x += sin(_sway) * 5.0 * delta
-	position.x = clampf(position.x, 22.0, 338.0)
+	# The wind slides floating rafts along the coast. They WRAP at the edges
+	# rather than stacking against the downwind wall -- clamped, everything
+	# spawned would end up piled at one end of the beach.
+	if game != null and game.wind != null:
+		position.x += float(game.wind.force()) * WIND_DRIFT * delta
+		if position.x > 346.0:
+			position.x -= 332.0
+	position.x = clampf(position.x, 14.0, 346.0)
 
 	if position.y <= shore_y:
 		_settle()

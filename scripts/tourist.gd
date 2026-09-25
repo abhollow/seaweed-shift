@@ -42,6 +42,18 @@ const WADE_FPS := 2.5     # arms bobbing on the surface, not striding
 # aimed only at the player.
 const STORM_SPEED := 0.55
 
+# Tourists are shoved by GUSTS only, not the steady wind. A constant push would
+# walk every one of them into the right-hand wall over their lifetime -- which
+# on Veracruz is exactly where the loading bay is. Gust-only means they stagger
+# sideways a few times and stay spread across the beach.
+#
+# Measured over a whole lifetime, not a frame: at 0.8 one gust carried a tourist
+# 228px -- two-thirds of the beach -- and 39% ended pinned against the bay wall.
+# At 0.3 a gust is an 86px stagger: enough to wreck a route you had planned.
+const GUST_SHOVE := 0.3
+const GUST_SHOVE_ROWDY := 0.5      # drunks have less footing
+const GUST_LEAN := 0.22
+
 # Which way the source art was drawn, same convention as Player. Flip this one
 # constant if a future sheet comes back facing the other way.
 const ART_FACES_LEFT := true
@@ -228,7 +240,28 @@ func _process(delta: float) -> void:
 			if position.y < despawn_y:
 				queue_free()
 
+	_tick_gust(delta)
 	position.x = clampf(position.x, 12.0, 348.0)
+
+
+func _tick_gust(delta: float) -> void:
+	var g := 0.0
+	if game != null and game.wind != null and game.wind.active():
+		g = float(game.wind.gust_shape())
+	if g > 0.0:
+		var k := GUST_SHOVE_ROWDY if rowdy else GUST_SHOVE
+		position.x += float(game.wind.force()) * g * k * delta
+	# Lean INTO the wind (it comes from the left, so the top tips left) -- a
+	# visible tell that the next few seconds belong to the weather.
+	#
+	# SET for sober tourists, ADDED for drunks. A drunk's sway rewrites rotation
+	# every frame, so adding to it is safe; a sober tourist's rotation is never
+	# reset anywhere else, and adding would accumulate until they spun.
+	var lean := -GUST_LEAN * g
+	if rowdy:
+		rotation += lean
+	else:
+		rotation = lean
 
 
 func _on_body_entered(body: Node2D) -> void:

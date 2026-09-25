@@ -738,3 +738,51 @@ meets sky and took both arms. The backdrop is far more distinctive -- bright
 cyan, white sand, one green frond -- so it is keyed by colour and the worker is
 whatever remains. Enclosed sky and sand patches are removed afterwards; nothing
 on the worker is bright cyan, since his cap and shorts are dark teal.
+
+
+### Levels 3-10 (first-pass mockups)
+
+Wired as numbered by the files, which differs from the original plan -- e.g. the
+sargassum finale is level 8, not 10. Each is a one-line swap in `beaches.gd`.
+
+| Level | Location | Sand | Shallows | Bay |
+|---|---|---|---|---|
+| 3 | Playa del Carmen | 231px | 109px | left |
+| 4 | Cozumel | 211px | 84px | right |
+| 5 | Bacalar | 196px | 133px | right |
+| 6 | Isla Holbox | 109px | 64px | left |
+| 7 | Puerto Morelos | 243px | 106px | right |
+| 8 | Mahahual | 205px | 141px | right |
+| 9 | Akumal | 189px | 134px | right |
+| 10 | Tulum | 202px | 93px | right |
+
+Zones were read off each image by eye against a 10% ruler, then checked with the
+lines overlaid. **Nothing was remapped** -- the zones are fitted to the art, so
+each level keeps its native proportions. Automatic band detection was not used:
+it cannot read a night scene or a circular island.
+
+**The bay moves.** Its node, collision size and skip are repositioned by
+`apply_beach()`, the skip flips to the bay's outer wall, and the player's
+driveway opens on whichever side the bay is on (`bay_x0..bay_x1`).
+
+**Not built yet** -- the art shows mechanics the game does not have, so the player
+walks straight over them: turtle nests (Akumal), boulders (Tulum), the stream
+(Puerto Morelos), knock-back surf (Bacalar), fog of war (Cozumel). **Isla Holbox
+runs on an approximate horizontal layout** -- the playable beach is only the arc
+below the compound. The round island needs radial zones, a different model.
+
+
+## Swaying foliage
+
+Palms and flags painted into a background can move, via `shaders/sway.gdshader`
+and a per-level mask. Build a mask with:
+
+    python3 tools/make_sway_mask.py --src assets/sprites/background_levelN.png \
+        --out assets/sprites/sway_levelN.png --below <row> --sky <row>
+
+`--below` is the lowest texel row allowed to move -- set it just above the
+rooftops, or the swing margin around low foliage drags walls with it. `--sky` is
+where saturated colours (kites, flag cloth) start counting; terracotta roofs are
+saturated too, which is why that rule stays in the sky. Then add a `sway` block
+to the level in `beaches.gd`. Motion comes in whole-texel steps, so it sways like
+pixel art rather than smearing. Check the mask overlaid on the art before wiring.
