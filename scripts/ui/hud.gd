@@ -309,6 +309,13 @@ func _refresh_status(rep: Reputation, player: Player) -> void:
 	if game.vip != null and game.vip.visible and game.vip_units() > 0:
 		_lbl_status.text = "SEAWEED IN THE VIP AREA"
 		return
+	if game.surf != null and game.surf.set_rolling():
+		if game.surf.big_coming():
+			_lbl_status.text = "ROGUE WAVE -- GET UP THE BEACH" if game.surf.rogue() \
+				else "BIG WAVE -- GET OUT OF THE WATER"
+		else:
+			_lbl_status.text = "SET ROLLING IN -- COUNT THE WAVES"
+		return
 	if game.night != null and game.night.moonlit():
 		_lbl_status.text = "THE CLOUDS PART -- LOOK AROUND"
 		return

@@ -1347,6 +1347,146 @@ func _run() -> void:
 	game.level = 1
 	game.apply_beach()
 
+	print("\n[bacalar]")
+	paused = false
+	game.level = 1
+	game.apply_beach()
+	check("calm beaches have no surf", not game.surf.active)
+	game.level = 5
+	game.apply_beach()
+	game.level_index = 0
+	check("Bacalar has big surf", game.surf.active)
+	check("and a lull before the first set", not game.surf.set_rolling() and game.surf._next_set > 10.0)
+	for c in game.world.get_children():
+		if c is Tourist or c is Seaweed:
+			c.free()
+	var keep_o5: Dictionary = game.owned.duplicate()
+	game.owned.clear()
+	game._reset_player_stats()
+	game._recompute_carry()
+	game.apply_beach()
+
+	# -- a set you can count: small waves first, then one big wave ------------
+	game.surf._sets = 0
+	game.surf.start_set()
+	var kinds: Array = game.surf._queue.duplicate()
+	check("a set is two or three small waves", kinds.count("small") >= 2 and kinds.count("small") <= 3)
+	check("then exactly one big wave, last", kinds.count("big") == 1 and kinds[-1] == "big")
+	check("the HUD tells you to count", game.surf.set_rolling() and not game.surf.big_coming())
+	game.surf._queue.clear()
+
+	# -- small waves are harmless; the big one knocks you back ----------------
+	game.player._stun = 0.0
+	game.player.position = Vector2(180, Zones.SHALLOW_TOP + 60.0)
+	var y_in: float = game.player.position.y
+	game.surf.waves.append({"y": y_in + 4.0, "big": false, "rogue": false, "riders": []})
+	game.surf.tick(0.1)
+	check("a small wave washes past harmlessly", not game.player.tumbling())
+	game.surf.waves.clear()
+	game.surf.waves.append({"y": y_in + 4.0, "big": true, "rogue": false, "riders": []})
+	game.surf.tick(0.1)
+	check("the big wave knocks you when it reaches you in the water", game.player.tumbling())
+	# smooth: no big per-frame jumps, and it takes long enough to read as motion
+	var last_y: float = game.player.position.y
+	var biggest_step := 0.0
+	var frames_moving := 0
+	for i in 60:
+		await physics_frame
+		var step: float = absf(game.player.position.y - last_y)
+		biggest_step = maxf(biggest_step, step)
+		if step > 0.01:
+			frames_moving += 1
+		last_y = game.player.position.y
+	check("back toward the shore", game.player.position.y < y_in - 60.0)
+	check("in one smooth motion, not a jump", biggest_step < 8.0 and frames_moving >= 25)
+	check("and you find your feet again", not game.player.tumbling() and is_zero_approx(game.player.rotation))
+	var foot_throw: float = y_in - game.player.position.y
+
+	# -- only a rogue reaches up onto the sand -------------------------------
+	game.player._stun = 0.0
+	game.player.position = Vector2(180, Zones.SHALLOW_TOP - 20.0)
+	game.surf.waves.clear()
+	game.surf.waves.append({"y": Zones.SHALLOW_TOP + 10.0, "big": true, "rogue": false, "riders": []})
+	for i in 10:
+		game.surf.tick(0.1)
+	check("a big wave cannot reach you up on the sand", not game.player.tumbling())
+	game.surf.waves.clear()
+	game.surf.waves.append({"y": Zones.SHALLOW_TOP + 10.0, "big": true, "rogue": true, "riders": []})
+	for i in 10:
+		game.surf.tick(0.1)
+	check("but a rogue runs up and catches you on the lower beach", game.player.tumbling())
+	for i in 60:
+		await physics_frame
+
+	# -- the heavy tractor ---------------------------------------------------
+	# Step out of the physics frame first: freeing an Area2D while the physics
+	# server is still flushing its queries is an engine error.
+	await frames(1)
+	for c in game.world.get_children():
+		if c is Tourist:
+			c.free()
+	game.player._stun = 0.0
+	game.owned["waders"] = true
+	game.owned["tractor"] = true
+	game._recompute_carry()
+	game.player.position = Vector2(180, Zones.SHALLOW_TOP + 60.0)
+	var y_tr: float = game.player.position.y
+	game.surf.waves.clear()
+	game.surf.waves.append({"y": y_tr + 4.0, "big": true, "rogue": false, "riders": []})
+	game.surf.tick(0.1)
+	for i in 60:
+		await physics_frame
+	check("the heavy tractor is pushed only half as far",
+		y_tr - game.player.position.y < foot_throw * 0.7)
+	game.player.position = Vector2(180, Zones.HOTEL_BOTTOM + 40.0)
+
+	# -- the big wave carries seaweed in, at the ferry's per-shift rate --------
+	game.surf.waves.clear()
+	for c in game.world.get_children():
+		if c is Seaweed:
+			c.free()
+	for i in 10:
+		game.spawner._add_seaweed(Vector2(30.0 + float(i) * 32.0, Zones.SHALLOW_TOP + 30.0 + float(i % 3) * 25.0),
+			1, false, true)
+	await frames(1)
+	game.level_index = 0
+	game.surf._set_rogue = false
+	game.surf._launch("small")
+	for i in 120:
+		game.surf.tick(0.1)
+	var beached_small := 0
+	for c in game.world.get_children():
+		if c is Seaweed and not (c as Seaweed).drifting:
+			beached_small += (c as Seaweed).units
+	check("small waves carry no seaweed", beached_small == 0)
+	game.surf._launch("big")
+	for i in 120:
+		game.surf.tick(0.1)
+	var beached := 0
+	var drifting := 0
+	for c in game.world.get_children():
+		if c is Seaweed:
+			if (c as Seaweed).drifting:
+				drifting += (c as Seaweed).units
+			else:
+				beached += (c as Seaweed).units
+	check("on shift 1 the big wave carries a light 20% ashore", beached == 2 and drifting == 8)
+	check("the same rising rates as the ferry, shift by shift",
+		is_equal_approx(game.surf.share_for(1), 0.3) and is_equal_approx(game.surf.share_for(3), 0.8))
+	for c in game.world.get_children():
+		if c is Seaweed:
+			c.free()
+
+	game.surf.waves.clear()
+	game.owned = keep_o5
+	game._reset_player_stats()
+	for up in Upgrades.LIST:
+		if game.owned.has(String(up["id"])):
+			game.apply_upgrade(String(up["id"]))
+	game._recompute_carry()
+	game.level = 1
+	game.apply_beach()
+
 	print("\n[levels and retention]")
 	paused = false
 	# Start from a clean campaign so the arc below is measured from level 1.

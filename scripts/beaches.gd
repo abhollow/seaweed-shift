@@ -100,6 +100,10 @@ const LIST := {
 	4: {
 		"name": "Cozumel",
 		"tagline": "The night shift. Work by lantern light -- and watch for the moon.",
+		"music": [
+			"res://audio/Island_Night_Drive_1.mp3",
+			"res://audio/Island_Night_Drive_2.mp3",
+		],
 		# Fog of war: a lantern on foot, headlights on the tractor, phone glows
 		# on the tourists, and the moon breaking through now and then.
 		"night": {
@@ -129,7 +133,27 @@ const LIST := {
 	},
 	5: {
 		"name": "Bacalar",
-		"tagline": "Big surf rolls in on this stretch of coast.",
+		"tagline": "Count the small waves -- then get out before the big one knocks you back to shore.",
+		"music": [
+			"res://audio/Tidal_Rush_1.mp3",
+			"res://audio/Tidal_Rush_2.mp3",
+		],
+		# Surf in countable sets: 2-3 small waves, then one BIG wave that knocks
+		# the worker back and carries seaweed in. Every fourth big wave is a
+		# ROGUE that runs up past the waterline onto the sand.
+		"surf": {
+			"first": 18.0,
+			"every": 26.0,
+			"smalls": [2, 3],
+			"gap": 2.4,
+			"speed": 60.0,
+			"knock": 110.0,
+			"rogue_every": 4,
+			"runup": 55.0,
+			# share of drifting seaweed the big wave carries, by shift -- the
+			# same as the Playa del Carmen ferry
+			"share": [0.2, 0.3, 0.6, 0.8],
+		},
 		"background": "res://assets/sprites/background_level5.png",
 		"water": "res://assets/sprites/water5_%02d.png",
 		"zones": {

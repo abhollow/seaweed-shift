@@ -1,6 +1,6 @@
 # Level 4 -- Cozumel
 
-**Status: first rough. Awaiting playtest.**
+**Status: APPROVED after playtest** -- "adds a new element but not a huge change"; the lantern, headlights, phone glows and moonrise all kept as built.
 
 ## Look
 
@@ -47,8 +47,7 @@ Calm and rewarding rather than punishing, in keeping with the tone.
   so they sweep across the black beach as moving points of light. Untested in
   play, but potentially the best moment on the level.
 - **Storms at night.** Rain is also drawn above the darkness.
-- **Music.** Level 4 has no soundtrack of its own yet, so it plays the default
-  shift playlist.
+- **Music.** Island Night Drive 1 and 2.
 
 ## Tuning knobs
 

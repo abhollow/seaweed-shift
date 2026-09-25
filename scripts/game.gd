@@ -103,6 +103,7 @@ var ferry: Ferry
 var vip: VipZone
 var vip_weight := 1.0
 var night: Night
+var surf: Surf
 var rep: Reputation
 var hud: Hud
 var shop: Shop
@@ -160,6 +161,7 @@ func _process(delta: float) -> void:
 	wind.tick(delta)
 	ferry.tick(delta)
 	night.tick(delta)
+	surf.tick(delta)
 	if _sway_mat != null:
 		var g: float = wind.gust_shape()
 		_sway_phase = sway_step(_sway_phase, delta, g)
@@ -456,6 +458,13 @@ func _build_systems() -> void:
 	night.game = self
 	night.z_index = 50
 	world.add_child(night)
+
+	# Surf sits on the water, under the sprites, so the worker stays readable
+	# when a wave breaks over them.
+	surf = Surf.new()
+	surf.game = self
+	surf.z_index = -1
+	world.add_child(surf)
 
 
 # =============================================================================
@@ -815,6 +824,8 @@ func apply_beach() -> void:
 		ferry.configure(beach)
 	if night != null:
 		night.configure(beach)
+	if surf != null:
+		surf.configure(beach)
 	# The VIP frontage runs from the club down to the waterline, so its height
 	# comes from this beach's zones rather than being fixed.
 	var v: Dictionary = beach.get("vip", {})

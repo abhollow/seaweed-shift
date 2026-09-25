@@ -331,6 +331,9 @@ func get_hit() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if _knocking:
+		_do_tumble(delta)
+		return
 	if _stun > 0.0:
 		_stun -= delta
 		velocity = Vector2.ZERO
@@ -357,10 +360,71 @@ func _physics_process(delta: float) -> void:
 	_refresh_set()
 	_tick_walk(delta, dir.length() > 0.05)
 
-	position.x = clampf(position.x, 16.0, 344.0)
+	_clamp_position()
 
+
+func _clamp_position() -> void:
+	position.x = clampf(position.x, 16.0, 344.0)
 	# The loading bay is a driveway cut into the hotel grounds, so across its
 	# width the player can go further up the screen than anywhere else. Which
 	# side it sits on is per level.
 	var top := bay_min_y if (position.x > bay_x0 and position.x < bay_x1) else min_y
 	position.y = clampf(position.y, top, max_y)
+
+
+# Knocked back by a wave (Bacalar). The worker is carried shoreward, then takes a
+# moment to find their feet. Unlike a tourist collision nothing is lost -- only
+# ground and time. A tractor is heavy enough to be pushed half as far.
+#
+# ONE smooth motion. The first version moved at a constant speed and stopped
+# dead, all in 0.32s -- about ten frames on a phone -- with a +/-17 degree
+# wobble shaking five times a second. It read as the worker teleporting. Now
+# the carry is eased in and out over 0.5s, the worker leans back once as the
+# wave takes them, and settles with a single slow sway.
+const KNOCK_TIME := 0.5       # seconds carried by the wave
+const TUMBLE_STILL := 0.3     # seconds settling afterwards
+const KNOCK_VEHICLE := 0.5
+const KNOCK_LEAN := 0.22      # radians leaned back at the height of the carry
+
+var _tumble := 0.0            # seconds into the knock; 0 when not tumbling
+var _knocking := false
+var _knock_from := 0.0
+var _knock_to := 0.0
+
+
+func knock(dist: float) -> void:
+	if _knocking or _stun > 0.0:
+		return
+	var d := dist * (KNOCK_VEHICLE if on_vehicle else 1.0)
+	_knocking = true
+	_tumble = 0.0
+	_knock_from = position.y
+	_knock_to = position.y - d
+
+
+func tumbling() -> bool:
+	return _knocking
+
+
+func knock_progress() -> float:
+	# 0..1 through the carry; used by the surf to throw spray around the worker.
+	return clampf(_tumble / KNOCK_TIME, 0.0, 1.0) if _knocking else 0.0
+
+
+func _do_tumble(delta: float) -> void:
+	_tumble += delta
+	if _tumble <= KNOCK_TIME:
+		var p := _tumble / KNOCK_TIME
+		var eased := p * p * (3.0 - 2.0 * p)          # smoothstep: no jolt either end
+		position.y = lerpf(_knock_from, _knock_to, eased)
+		rotation = -KNOCK_LEAN * sin(p * PI)
+	else:
+		# Settle: one slow, fading sway as the worker finds their feet.
+		var q := clampf((_tumble - KNOCK_TIME) / TUMBLE_STILL, 0.0, 1.0)
+		rotation = KNOCK_LEAN * 0.35 * sin(q * PI) * (1.0 - q)
+		if q >= 1.0:
+			_knocking = false
+			_tumble = 0.0
+			rotation = 0.0
+	velocity = Vector2.ZERO
+	_clamp_position()
