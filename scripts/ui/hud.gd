@@ -318,6 +318,9 @@ func _refresh_status(rep: Reputation, player: Player) -> void:
 	_lbl_status.add_theme_color_override("font_color", Color(1.0, 0.86, 0.55))
 
 	# Level warnings, below the failure countdown but above everything else.
+	if game.hurricane != null and game.hurricane.status_text() != "":
+		_lbl_status.text = game.hurricane.status_text()
+		return
 	if game.ferry != null and game.ferry.inbound():
 		_lbl_status.text = "FERRY INBOUND -- WAKE COMING"
 		return
@@ -330,6 +333,9 @@ func _refresh_status(rep: Reputation, player: Player) -> void:
 				else "BIG WAVE -- GET OUT OF THE WATER"
 		else:
 			_lbl_status.text = "SET ROLLING IN -- COUNT THE WAVES"
+		return
+	if game.hatch != null and game.hatch.status_text() != "":
+		_lbl_status.text = game.hatch.status_text()
 		return
 	if game.mat != null and game.mat.status_text() != "":
 		_lbl_status.text = game.mat.status_text()

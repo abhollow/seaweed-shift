@@ -124,6 +124,11 @@ var surf: Surf
 var holbox: Holbox
 var stream: Stream
 var mat: SargassumMat
+var hatch: Hatchlings
+var hurricane: Hurricane
+
+# Turtle-nest enclosures (Akumal): solid obstacles on the sand, from the art.
+var nests: Array = []         # of Rect2
 var rep: Reputation
 var hud: Hud
 var shop: Shop
@@ -148,6 +153,8 @@ var _bay_rect: RectangleShape2D
 var _bay_bin: Sprite2D
 var _sway_mat: ShaderMaterial
 var _sway_phase := 0.0
+var _sway_lean := 1.0
+var _sway_amp := 1.4
 const SWAY_SHADER := preload("res://shaders/sway.gdshader")
 
 
@@ -185,11 +192,19 @@ func _process(delta: float) -> void:
 	holbox.tick(delta)
 	stream.tick(delta)
 	mat.tick(delta)
+	hatch.tick(delta)
+	hurricane.tick(delta)
 	if _sway_mat != null:
 		var g: float = wind.gust_shape()
 		_sway_phase = sway_step(_sway_phase, delta, g)
 		_sway_mat.set_shader_parameter("phase", _sway_phase)
 		_sway_mat.set_shader_parameter("gust", g)
+		# The palms lean the way the wind blows -- including when it turns -- and
+		# move with its strength: barely in a calm, fully from Veracruz-strength
+		# wind upward. (Veracruz itself is always at full, so it is unchanged.)
+		var calm := clampf(wind.strength / 30.0, 0.3, 1.0) if wind.active() else 0.3
+		_sway_mat.set_shader_parameter("lean", _sway_lean * calm * (wind.dir if wind.active() else 1.0))
+		_sway_mat.set_shader_parameter("amp", _sway_amp * calm)
 	rep.tick(delta)
 	_tick_water(delta)
 	shift_elapsed += delta
@@ -505,6 +520,17 @@ func _build_systems() -> void:
 	mat.z_index = -2
 	world.add_child(mat)
 
+	# Hatchlings crawl over the sand, above the seaweed so they are never lost
+	# under a pile.
+	hatch = Hatchlings.new()
+	hatch.game = self
+	hatch.z_index = 2
+	world.add_child(hatch)
+
+	hurricane = Hurricane.new()
+	hurricane.game = self
+	add_child(hurricane)
+
 
 # =============================================================================
 # Shift lifecycle
@@ -560,7 +586,42 @@ func spawn_scale() -> float:
 	# it: collecting from all 360 degrees of an island is more walking than
 	# working one straight beach, even with the skip in the middle. On top of
 	# that sits the adaptive multiplier, which follows the player.
-	return maxf(0.1, float(Beaches.for_level(level).get("spawn_scale", 1.0))) * adapt
+	var h := hurricane.spawn_factor() if hurricane != null else 1.0
+	return maxf(0.1, float(Beaches.for_level(level).get("spawn_scale", 1.0))) * adapt * h
+
+
+func in_nest(p: Vector2, pad: float = 0.0) -> bool:
+	for r in nests:
+		if (r as Rect2).grow(pad).has_point(p):
+			return true
+	return false
+
+
+func push_out_of_nests(p: Vector2, pad: float) -> Vector2:
+	# Out of any enclosure by the shortest way -- so the worker slides along
+	# the rope instead of being thrown to the far side.
+	for r in nests:
+		var g := (r as Rect2).grow(pad)
+		if not g.has_point(p):
+			continue
+		var outs := [Vector2(g.position.x - 0.5, p.y), Vector2(g.end.x + 0.5, p.y),
+			Vector2(p.x, g.position.y - 0.5), Vector2(p.x, g.end.y + 0.5)]
+		var best: Vector2 = outs[0]
+		for q in outs:
+			if p.distance_to(q) < p.distance_to(best):
+				best = q
+		p = best
+	return p
+
+
+func sidestep_nests(p: Vector2, pad: float) -> Vector2:
+	# Tourists walk down the beach and step AROUND a nest rather than over it:
+	# sideways only, so they keep heading for the water.
+	for r in nests:
+		var g := (r as Rect2).grow(pad)
+		if g.has_point(p):
+			p.x = g.position.x - 0.5 if p.x < g.get_center().x else g.end.x + 0.5
+	return p
 
 
 func adapt_after_fail() -> void:
@@ -668,6 +729,9 @@ func begin_level() -> void:
 
 	weather.reset()
 	spawner.reset()
+	# Every shift of the finale starts calm; the hurricane builds again.
+	if hurricane != null:
+		hurricane.configure(Beaches.for_level(level))
 
 	if audio != null:
 		# A level's own soundtrack wins over the shift's. Each location should
@@ -900,6 +964,14 @@ func apply_beach() -> void:
 		stream.configure(beach)
 	if mat != null:
 		mat.configure(beach)
+	nests.clear()
+	for n in beach.get("nests", []):
+		nests.append(Rect2(float(n[0]), float(n[1]), float(n[2]) - float(n[0]), float(n[3]) - float(n[1])))
+	if hatch != null:
+		hatch.configure(beach)
+	# Last: the hurricane takes over the wind, storm and surf it was given.
+	if hurricane != null:
+		hurricane.configure(beach)
 	# The VIP frontage runs from the club down to the waterline, so its height
 	# comes from this beach's zones rather than being fixed.
 	var v: Dictionary = beach.get("vip", {})
@@ -915,6 +987,8 @@ func apply_beach() -> void:
 	# Painted foliage that moves: a shader on the background, only on beaches
 	# that ship a sway mask. Everywhere else the background has no material.
 	_sway_mat = make_sway_material(beach)
+	_sway_lean = float(beach.get("sway", {}).get("lean", 1.0))
+	_sway_amp = float(beach.get("sway", {}).get("amp", 1.4))
 	if _bg_sprite != null:
 		_bg_sprite.material = _sway_mat
 

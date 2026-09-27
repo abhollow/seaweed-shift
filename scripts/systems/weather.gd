@@ -86,6 +86,25 @@ func reset() -> void:
 		game.audio.stop_ambience(0.4)
 
 
+func force_storm(on: bool) -> void:
+	# The Tulum hurricane runs the storm itself: on for as long as it says, off
+	# when it says -- the ordinary storm timer never ends it early.
+	if on == game.storm_active:
+		return
+	if on:
+		game.storm_active = true
+		_storm_left = 1.0e9
+		_thunder_t = randf_range(1.0, 3.0)
+		game.tween_tint(TINT_STORM)
+		set_bed(Bed.STORM)
+	else:
+		game.storm_active = false
+		_storm_left = 0.0
+		game.tween_tint(TINT_CLEAR)
+		resolve_bed()
+		refresh_ambience()
+
+
 func storms_allowed() -> bool:
 	var beach := Beaches.for_level(game.level)
 	if bool(beach.get("no_storms", false)):

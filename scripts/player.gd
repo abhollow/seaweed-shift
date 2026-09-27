@@ -392,6 +392,9 @@ func _clamp_position() -> void:
 	# side it sits on is per level.
 	var top := bay_min_y if (position.x > bay_x0 and position.x < bay_x1) else min_y
 	position.y = clampf(position.y, top, max_y)
+	# Turtle-nest enclosures are solid (Akumal).
+	if game != null and not game.nests.is_empty():
+		position = game.push_out_of_nests(position, NEST_PAD)
 
 
 func _clamp_radial() -> void:
@@ -463,6 +466,7 @@ func _nearest_open(v: Vector2, r: float, edge: float) -> Vector2:
 # wobble shaking five times a second. It read as the worker teleporting. Now
 # the carry is eased in and out over 0.5s, the worker leans back once as the
 # wave takes them, and settles with a single slow sway.
+const NEST_PAD := 6.0        # the worker's body stops this far from the rope
 const KNOCK_TIME := 0.5       # seconds carried by the wave
 const TUMBLE_STILL := 0.3     # seconds settling afterwards
 const KNOCK_VEHICLE := 0.5

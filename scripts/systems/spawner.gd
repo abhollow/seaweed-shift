@@ -101,6 +101,11 @@ func spawn_seaweed(units: int) -> void:
 	# The sand band never reaches into the resort (it can on a narrow ring).
 	if roll < sand_w:
 		pos = _point(maxf(Zones.SHALLOW_TOP - 80.0, Zones.HOTEL_BOTTOM + 14.0), Zones.SHORE_Y - 6.0)
+		# Never inside a turtle nest (Akumal).
+		for tries in 10:
+			if not game.in_nest(pos, 10.0):
+				break
+			pos = _point(maxf(Zones.SHALLOW_TOP - 80.0, Zones.HOTEL_BOTTOM + 14.0), Zones.SHORE_Y - 6.0)
 		drifts = false
 	elif roll < sand_w + shallow_w:
 		pos = _point(Zones.SHALLOW_TOP + 14.0, Zones.DEEP_TOP - 12.0)
@@ -138,6 +143,7 @@ func scatter(units: int, at: Vector2) -> void:
 		# Keep the debris on playable sand, never in the resort or off-screen.
 		pos.x = clampf(pos.x, 16.0, Zones.VIEW_W - 16.0)
 		pos = Zones.at_depth(pos, clampf(Zones.depth(pos), Zones.HOTEL_BOTTOM + 14.0, Zones.SHALLOW_TOP - 10.0))
+		pos = game.push_out_of_nests(pos, 10.0)
 		_add_seaweed(pos, chunk, false, false)
 
 

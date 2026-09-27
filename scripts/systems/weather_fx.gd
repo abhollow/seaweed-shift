@@ -195,11 +195,15 @@ func _process(delta: float) -> void:
 	if windy:
 		var push: float = float(game.wind.force())
 		for st in _streaks:
-			var v: float = (STREAK_SPEED + push * 4.0) * float(st["k"])
-			st["pos"].x += v * delta
+			# Streaks follow the wind's direction -- the Tulum back wall blows
+			# right to left.
+			var wdir: float = float(game.wind.dir)
+			var v: float = (STREAK_SPEED + absf(push) * 4.0) * float(st["k"])
+			st["pos"].x += v * wdir * delta
 			st["pos"].y -= v * 0.12 * delta
-			if st["pos"].x > Zones.VIEW_W + 30.0 or st["pos"].y < Zones.HOTEL_BOTTOM - 40.0:
-				st["pos"] = Vector2(randf_range(-40.0, -4.0),
+			if st["pos"].x > Zones.VIEW_W + 30.0 or st["pos"].x < -30.0 or st["pos"].y < Zones.HOTEL_BOTTOM - 40.0:
+				var from_x := randf_range(-40.0, -4.0) if wdir > 0.0 else randf_range(Zones.VIEW_W + 4.0, Zones.VIEW_W + 40.0)
+				st["pos"] = Vector2(from_x,
 					randf_range(Zones.HOTEL_BOTTOM - 10.0, Zones.VIEW_H + 20.0))
 
 	var active := storm or disco or windy
@@ -222,7 +226,7 @@ func _draw() -> void:
 			var c := STREAK_COLOR
 			c.a *= 0.55 + 0.45 * g
 			var l: float = float(st["len"]) * (1.0 + 0.6 * g)
-			draw_line(p, p + Vector2(-l, l * 0.12), c, 1.0)
+			draw_line(p, p + Vector2(-l * float(game.wind.dir), l * 0.12), c, 1.0)
 	if game != null and game.storm_active:
 		for d in _drops:
 			var p: Vector2 = d["pos"]

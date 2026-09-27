@@ -374,6 +374,8 @@ func _do_drift(delta: float) -> void:
 		position.x += float(game.wind.force()) * WIND_DRIFT * delta
 		if position.x > 346.0:
 			position.x -= 332.0
+		elif position.x < 14.0 and game.wind.dir < 0.0:
+			position.x += 332.0
 	position.x = clampf(position.x, 14.0, 346.0)
 
 	if Zones.depth(position) <= shore_y:

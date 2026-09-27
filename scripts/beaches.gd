@@ -293,7 +293,19 @@ const LIST := {
 	},
 	9: {
 		"name": "Akumal",
-		"tagline": "The bay of turtles. Mind the nests.",
+		"tagline": "The bay of turtles. Work around the nests -- and when they hatch, clear the way to the sea.",
+		# Turtle-nest enclosures, measured from the art: solid for the worker
+		# and tourists, and seaweed never lands inside. [x0, y0, x1, y1]
+		"nests": [[38, 266, 78, 294], [201, 277, 244, 305], [107, 327, 150, 355], [282, 325, 325, 352]],
+		# A nest hatches every ~55s: hatchlings crawl to the sea, stopped by any
+		# seaweed pile in their way.
+		"hatch": {
+			"first": 35.0,
+			"every": 55.0,
+			"count": 8,
+			"speed": 16.0,
+			"limit": 25.0,
+		},
 		"background": "res://assets/sprites/background_level9.png",
 		"water": "res://assets/sprites/water9_%02d.png",
 		"zones": {
@@ -309,19 +321,53 @@ const LIST := {
 	},
 	10: {
 		"name": "Tulum",
-		"tagline": "Beneath the ruins, the beach is strewn with boulders.",
+		"tagline": "The finale. A hurricane is coming -- and when the eye passes, the wind turns.",
+		# The hurricane conducts the wind, the storm and the surf through the
+		# shift; random storms and Happy Hour are off so nothing competes.
+		"no_storms": true,
+		"no_happy_hour": true,
+		"hurricane": {
+			"gathering": 0.15,
+			"front": 0.35,
+			"eye": 0.6,
+			"eye_len": 20.0,
+		},
+		# Wind and surf parameters; the hurricane switches them on and off.
+		"wind": {"strength": 0.0},
+		# The palms and jungle treeline sway -- barely in the calm, whipping in
+		# the storm, and leaning whichever way the wind blows.
+		"sway": {
+			"mask": "res://assets/sprites/sway_level10.png",
+			"amp": 1.6,
+			"lean": 1.2,
+		},
+		"surf": {
+			"first": 6.0,
+			"every": 20.0,
+			"smalls": [2, 3],
+			"gap": 2.4,
+			"speed": 60.0,
+			"knock": 110.0,
+			"rogue_every": 3,
+			"runup": 55.0,
+			"share": [0.2, 0.3, 0.6, 0.8],
+		},
 		"background": "res://assets/sprites/background_level10.png",
 		"water": "res://assets/sprites/water10_%02d.png",
 		"zones": {
-			"hotel_bottom": 198.0,
-			"shallow_top": 400.0,
-			"deep_top": 493.0,
-			"shore_y": 394.0,
-			"water_top": 370.0,
-			"tourist_spawn_y": 188.0,
-			"tourist_despawn_y": 188.0,
-			"bay_pos": Vector2(318, 168),
+			"hotel_bottom": 192.0,
+			"shore_y": 384.0,
+			"shallow_top": 390.0,
+			"deep_top": 515.0,
+			"water_top": 360.0,
+			"tourist_spawn_y": 182.0,
+			"tourist_despawn_y": 182.0,
+			"bay_pos": Vector2(311, 160),
 		},
+		"music": [
+			"res://audio/Tropical_Storm_Reggae_1.mp3",
+			"res://audio/Tropical_Storm_Reggae_2.mp3",
+		],
 	},
 }
 

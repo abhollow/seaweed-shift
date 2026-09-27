@@ -249,6 +249,8 @@ func _process(delta: float) -> void:
 
 	_tick_gust(delta)
 	_tick_stream(delta)
+	if game != null and not game.nests.is_empty():
+		position = game.sidestep_nests(position, 8.0)
 	position.x = clampf(position.x, 12.0, 348.0)
 
 

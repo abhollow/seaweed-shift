@@ -1851,6 +1851,12 @@ func _run() -> void:
 	check("the mat is not straight away", not game.mat.drifting_in() and game.mat._next > 20.0)
 	check("it drops more each shift", game.mat.piles_for(0) < game.mat.piles_for(1)
 		and game.mat.piles_for(1) < game.mat.piles_for(3))
+	# Clear the beach right before the mat: the one-frame wait above lets the
+	# live game spawn seaweed -- half of it sargassum here -- which would
+	# otherwise be counted as part of the mat's landing.
+	for c in game.world.get_children():
+		if c is Seaweed:
+			c.free()
 	game.level_index = 0
 	game.mat.launch()
 	check("a mat drifts in from far out", game.mat.drifting_in() and game.mat.mat_y > Zones.VIEW_H)
@@ -1889,6 +1895,155 @@ func _run() -> void:
 	game.player.capacity = keep_cap
 	game.level = 1
 	game.apply_beach()
+
+	print("\n[akumal]")
+	paused = false
+	game.level = 1
+	game.apply_beach()
+	check("other beaches have no nests", game.nests.is_empty() and not game.hatch.active)
+	game.level = 9
+	game.apply_beach()
+	check("Akumal has its turtle nests", game.nests.size() == 4 and game.hatch.active)
+	game.player.position = Zones.BAY_POS
+	for c in game.world.get_children():
+		if c is Seaweed or c is Tourist:
+			c.free()
+	var nest0: Rect2 = game.nests[0]
+	game.player.position = nest0.get_center()
+	game.player._clamp_position()
+	check("the worker cannot walk into a nest", not game.in_nest(game.player.position, 0.0))
+	check("they are moved to the nearest edge, not across the beach",
+		game.player.position.distance_to(nest0.get_center()) < nest0.size.length() * 0.5 + Player.NEST_PAD + 2.0)
+	var tp: Vector2 = game.sidestep_nests(nest0.get_center(), 8.0)
+	check("tourists step round a nest, still heading for the water",
+		not game.in_nest(tp, 0.0) and is_equal_approx(tp.y, nest0.get_center().y))
+	for i in 150:
+		game.spawner.spawn_seaweed(1)
+	var in_nest_n := 0
+	for c in game.world.get_children():
+		if c is Seaweed and not (c as Seaweed).drifting and game.in_nest((c as Seaweed).position, 0.0):
+			in_nest_n += 1
+	check("seaweed never lands inside a nest", in_nest_n == 0)
+	for c in game.world.get_children():
+		if c is Seaweed:
+			c.free()
+	game.player.position = Zones.BAY_POS
+	await frames(1)
+	# a clear path: every hatchling makes it, and it pays
+	var h9: Hatchlings = game.hatch
+	var cr0: int = game.credits_earned
+	h9.start(0)
+	check("a nest hatches into a line of hatchlings", h9.hatching() and h9.turtles.size() == h9.count)
+	check("and the HUD asks you to clear the way", h9.status_text().contains("CLEAR"))
+	for i in 200:
+		h9.tick(0.1)
+		if not h9.hatching():
+			break
+	check("with a clear path every hatchling reaches the sea", h9._saved == h9.count)
+	check("and each one pays out", game.credits_earned - cr0 == h9.count * game.price_per_unit * h9.reward_units)
+	check("the HUD celebrates", h9.status_text().contains("ALL"))
+	# a pile in the way stops them -- until it is cleared
+	var n1: Rect2 = game.nests[1]
+	var wall := []
+	for k in 4:
+		wall.append(game.spawner._add_seaweed(Vector2(n1.position.x + 6.0 + float(k) * 11.0, n1.end.y + 22.0), 8, false, false))
+	await frames(1)
+	h9.start(1)
+	for i in 40:
+		h9.tick(0.1)
+	check("a fully blocked hatching waits for you rather than ending at once", h9.hatching())
+	var stuck := 0
+	for ht in h9.turtles:
+		if not ht["done"] and (ht["pos"] as Vector2).y < n1.end.y + 22.0:
+			stuck += 1
+	check("a seaweed pile in their path stops the hatchlings", stuck > 0 and h9._saved < h9.count)
+	for w in wall:
+		w.free()
+	await frames(1)
+	for i in 200:
+		h9.tick(0.1)
+		if not h9.hatching():
+			break
+	check("clear it and they carry on to the sea", h9._saved == h9.count)
+	# left stuck until time runs out, it costs reputation
+	var wall2 := []
+	var n2: Rect2 = game.nests[2]
+	for k in 4:
+		wall2.append(game.spawner._add_seaweed(Vector2(n2.position.x + 6.0 + float(k) * 11.0, n2.end.y + 14.0), 8, false, false))
+	await frames(1)
+	game.rep.value = 90.0
+	h9.start(2)
+	for i in 300:
+		h9.tick(0.1)
+		if not h9.hatching():
+			break
+	check("hatchlings left stranded cost reputation", game.rep.value < 90.0 - h9.lost_rep)
+	check("and the HUD says how many made it", h9.status_text().contains("OF"))
+	for w in wall2:
+		if is_instance_valid(w):
+			w.free()
+	for c in game.world.get_children():
+		if c is Seaweed:
+			c.free()
+	game.level = 1
+	game.apply_beach()
+
+	print("\n[tulum]")
+	paused = false
+	game.level = 1
+	game.apply_beach()
+	check("other beaches have no hurricane", not game.hurricane.active and game.hurricane.spawn_factor() == 1.0)
+	game.level = 10
+	game.apply_beach()
+	game.level_index = 0
+	game.begin_level()
+	await frames(1)
+	var hu: Hurricane = game.hurricane
+	var goal10: float = float(game.current_level().get("credits", 1500))
+	check("the finale has a hurricane", hu.active)
+	check("its palms and treeline sway", game._bg_sprite.material is ShaderMaterial)
+	await frames(2)
+	var calm_amp: float = float(game._sway_mat.get_shader_parameter("amp"))
+	check("each shift starts calm and sunny",
+		hu.phase == Hurricane.Phase.CALM and not game.wind.active() and not game.storm_active and not game.surf.active)
+	check("no random storms or Happy Hour to compete with it",
+		not game.weather.storms_allowed())
+	game.credits_earned = int(goal10 * 0.16)
+	hu.tick(0.1)
+	check("the wind rises as the shift goes on", hu.phase == Hurricane.Phase.GATHERING and game.wind.active())
+	game.credits_earned = int(goal10 * 0.36)
+	hu.tick(0.1)
+	check("then the hurricane hits: storm, surf and gales",
+		hu.phase == Hurricane.Phase.FRONT and game.storm_active and game.surf.active and game.wind.strength > 30.0)
+	check("blowing left to right", game.wind.force() > 0.0)
+	await frames(2)
+	check("the palms barely stir in the calm, and whip in the storm",
+		float(game._sway_mat.get_shader_parameter("amp")) > calm_amp * 2.0)
+	game.credits_earned = int(goal10 * 0.61)
+	hu.tick(0.1)
+	check("then the eye: everything stops",
+		hu.phase == Hurricane.Phase.EYE and not game.wind.active() and not game.storm_active and not game.surf.active)
+	check("seaweed barely arrives -- a breather", hu.spawn_factor() < 0.5)
+	check("and the HUD counts it down", hu.status_text().contains("EYE"))
+	for i in int(hu.eye_len * 10.0) + 2:
+		hu.tick(0.1)
+	check("then the back wall, from the other side",
+		hu.phase == Hurricane.Phase.BACKWALL and game.storm_active and game.wind.force() < 0.0)
+	check("the worker is pushed the other way now", game.player.wind_push(true) < 0.0)
+	await frames(2)
+	check("and the palms lean the other way", float(game._sway_mat.get_shader_parameter("lean")) < 0.0)
+	check("the storm holds until the shift ends -- it is not on a timer", game.storm_active)
+	game.weather.tick(120.0)
+	check("even after two minutes", game.storm_active)
+	game.begin_level()
+	await frames(1)
+	check("the next shift starts calm again",
+		hu.phase == Hurricane.Phase.CALM and not game.storm_active and not game.wind.active())
+	game.credits_earned = 0
+	game.level = 1
+	game.apply_beach()
+	game.begin_level()
+	await frames(1)
 
 	print("\n[adaptive difficulty]")
 	var keep_adapt: float = game.adapt

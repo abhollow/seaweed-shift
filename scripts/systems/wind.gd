@@ -18,6 +18,7 @@ var gust_every := 0.0    # mean seconds between gusts
 var gust_len := 0.0      # seconds a gust lasts
 var gust_mult := 1.0     # peak push during a gust, as a multiple of strength
 
+var dir := 1.0           # +1 blows left to right, -1 right to left
 var gusting := false
 var _gust_t := 0.0
 var _next_gust := 0.0
@@ -46,6 +47,7 @@ func configure(beach: Dictionary) -> void:
 	gust_every = float(w.get("gust_every", 0.0))
 	gust_len = float(w.get("gust_len", 0.0))
 	gust_mult = float(w.get("gust_mult", 1.0))
+	dir = float(w.get("dir", 1.0))
 	gusting = false
 	_gust_t = 0.0
 	# The first gust comes early, so a new player meets it within seconds.
@@ -56,6 +58,25 @@ func configure(beach: Dictionary) -> void:
 				_bed.play()
 			_bed.volume_db = BED_DB
 		else:
+			_bed.stop()
+
+
+func set_live(new_strength: float, every: float, length: float, mult: float, new_dir: float) -> void:
+	# Change the wind mid-shift (the Tulum hurricane): the bed starts or stops
+	# with it, and a gust already under way finishes naturally.
+	var was := active()
+	strength = new_strength
+	gust_every = every
+	gust_len = length
+	gust_mult = mult
+	dir = new_dir
+	if _next_gust <= 0.0 or not was:
+		_next_gust = gust_every * 0.4
+	if _bed != null:
+		if active() and not _bed.playing:
+			_bed.play()
+			_bed.volume_db = BED_DB
+		elif not active():
 			_bed.stop()
 
 
@@ -99,4 +120,4 @@ func force() -> float:
 	# A norte and a storm together is the worst of both.
 	if game != null and game.storm_active:
 		f *= 1.5
-	return f
+	return f * dir
