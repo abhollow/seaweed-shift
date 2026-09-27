@@ -1,6 +1,6 @@
 # Level 8 -- Mahahual
 
-**Status: first rough. Awaiting playtest.**
+**Status: second pass -- mat lands as heaps, music added.**
 
 ## Look
 
@@ -42,8 +42,14 @@ shallows it breaks up into sargassum piles (2 units each) across the stretch of
 beach it came in on. HUD: SARGASSUM MAT DRIFTING IN, then THE MAT HAS COME
 ASHORE.
 
-How many piles scales with the shift, like the ferry and the big wave: **4 / 6 /
-8 / 10**.
+It comes ashore as **heaps**: big grouped mounds of sargassum, up to 12 units
+each (an ordinary pile tops out at 8), with any remainder as a normal pile. A
+heap is three large piles composited into one mound
+(`assets/sprites/sargassum_heap_f0-3.png` plus a rot overlay), drawn amber by
+the same shader; raked down below 6 units it turns back into an ordinary pile.
+
+Units per mat scale with the shift, like the ferry and the big wave: **8 / 12 /
+16 / 20** -- one heap on shift 1, up to two heaps and a pile by shift 4.
 
 ## Tuning knobs
 
@@ -52,8 +58,9 @@ Level 8's `sargassum` block in `scripts/beaches.gd`: `share`, `mat_first`,
 
 ## Not built
 
-- **Music.** None of its own yet.
-- **Mat art.** Drawn in code.
+- **Mat art.** The drifting mat is drawn in code.
+
+**Music:** Tense Beach Game 1 and 2.
 
 ## Playtest -- what to feel for
 

@@ -71,6 +71,31 @@ func make_sargassum() -> void:
 
 func weight() -> int:
 	return 2 if sargassum else 1
+
+
+# A HEAP (Mahahual's mat, washed ashore): three large piles grouped into one
+# mound, holding up to HEAP_MAX units. Once raked down below HEAP_SHOWS it
+# turns back into an ordinary pile. Always sargassum.
+const HEAP_MAX := 12
+const HEAP_SHOWS := 6
+const HEAP_FRAMES := [
+	preload("res://assets/sprites/sargassum_heap_f0.png"),
+	preload("res://assets/sprites/sargassum_heap_f1.png"),
+	preload("res://assets/sprites/sargassum_heap_f2.png"),
+	preload("res://assets/sprites/sargassum_heap_f3.png"),
+]
+const HEAP_ROT := preload("res://assets/sprites/sargassum_heap_rot.png")
+var heap := false
+
+
+func make_heap() -> void:
+	heap = true
+	make_sargassum()
+	_refresh()
+
+
+func heap_showing() -> bool:
+	return heap and units >= HEAP_SHOWS
 var _base_color := Color.WHITE
 var _player: Player = null
 var _size := 18.0
@@ -180,7 +205,7 @@ func _pop_and_free() -> void:
 
 
 func _refresh() -> void:
-	_size = size_for_units(units)
+	_size = 64.0 if heap_showing() else size_for_units(units)
 	_rect.size = Vector2(_size, _size)
 	_rect.position = -Vector2(_size, _size) / 2.0
 
@@ -235,6 +260,13 @@ func _base_array() -> Array[Texture2D]:
 
 
 func _tick_sway(delta: float) -> void:
+	if heap_showing():
+		_anim_t += delta * float(SWAY_FPS.get("fresh", 3.0))
+		var hf := int(_anim_t) % 4
+		if hf != _anim_frame:
+			_anim_frame = hf
+			_sprite.texture = HEAP_FRAMES[hf]
+		return
 	var arr := _base_array()
 	if _frames_per_tier(arr) < 2:
 		return
@@ -258,6 +290,15 @@ func _fit(sprite: Sprite2D, tex: Texture2D) -> void:
 
 
 func _apply_textures() -> void:
+	if heap_showing():
+		# Drawn at the art's own 2x pixel scale, not squashed into a square.
+		_sprite.texture = HEAP_FRAMES[max(0, _anim_frame) % 4]
+		_sprite.scale = Vector2(2, 2)
+		_sprite.visible = true
+		_rect.visible = false
+		_sprite_rot.texture = HEAP_ROT
+		_sprite_rot.scale = Vector2(2, 2)
+		return
 	var base := _pick(_base_array(), max(0, _anim_frame))
 	_fit(_sprite, base)
 	_sprite.visible = base != null

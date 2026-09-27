@@ -14,7 +14,7 @@ extends CanvasLayer
 const SAFE_AREA_MAX := 72.0
 
 const STRIP_H := 42.0
-const BTN_Y := 8.0
+const BTN_Y := 4.0          # as close to the top edge as a thumb can reliably hit
 
 var game
 
@@ -143,6 +143,21 @@ func _label(pos: Vector2, size: Vector2, fsize: int, c: Color, align: int) -> La
 	return l
 
 
+static func inset_in_game(inset_px: float, win: Vector2, vis: Vector2) -> float:
+	# How much of a screen-edge inset (notch, status bar, gesture bar) actually
+	# covers the GAME, in game pixels.
+	#
+	# The game keeps its 9:16 shape, so on a tall phone it is letterboxed: black
+	# bars above and below that already clear the notch. The first version
+	# scaled the whole inset into game pixels and added it anyway, pushing the
+	# MENU and SHOP buttons (and the bottom strip) inward for nothing. Now only
+	# the part of the inset reaching past the letterbox bar counts -- zero on
+	# most modern phones.
+	var scale := minf(win.x / vis.x, win.y / vis.y)
+	var bar := (win.y - vis.y * scale) * 0.5
+	return maxf(0.0, inset_px - bar) / scale
+
+
 func apply_safe_area() -> void:
 	# The layer itself is NOT offset any more. With readouts pinned to the
 	# bottom, shifting the whole layer down would push them off the screen, so
@@ -153,9 +168,9 @@ func apply_safe_area() -> void:
 	var safe := DisplayServer.get_display_safe_area()
 	var vis := get_viewport().get_visible_rect().size
 
-	_top_inset = clampf((float(safe.position.y) / float(win.y)) * vis.y, 0.0, SAFE_AREA_MAX)
 	var bottom_px := float(win.y - (safe.position.y + safe.size.y))
-	_bottom_inset = clampf((bottom_px / float(win.y)) * vis.y, 0.0, SAFE_AREA_MAX)
+	_top_inset = clampf(inset_in_game(float(safe.position.y), Vector2(win), vis), 0.0, SAFE_AREA_MAX)
+	_bottom_inset = clampf(inset_in_game(bottom_px, Vector2(win), vis), 0.0, SAFE_AREA_MAX)
 
 	_menu_btn.position.y = BTN_Y + _top_inset
 	_shop_btn.position.y = BTN_Y + _top_inset

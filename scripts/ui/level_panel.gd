@@ -79,7 +79,8 @@ func show_failure() -> void:
 		+ "Too much seaweed was left to rot. A rotten pile "
 		+ "counts six times a fresh one.\n\n"
 		+ "%s restarts from the beginning. The %d credits "
-		+ "earned this shift are gone.") % [
+		+ "earned this shift are gone.\n\n"
+		+ "The beach will be a little quieter next time.") % [
 			String(lv["name"]).split("  --  ")[0],
 			game.credits_earned,
 		]
@@ -129,7 +130,8 @@ func show_summary(is_last: bool) -> void:
 	# "Closest call" is the stat worth reporting: it is the only one that says
 	# anything about HOW the shift went rather than that it ended.
 	_body.text = ("%s\n\nEarned this shift   %d cr\nResort bonus   +%d cr\n"
-		+ "In the bank   %d cr\n\nShift time   %d:%02d\nClosest call   reputation %d") % [
+		+ "In the bank   %d cr\n\nShift time   %d:%02d\nClosest call   reputation %d"
+		+ ("\n\nWord's out -- the next beach will be busier." if game.last_adapt > 0 else "")) % [
 		String(lv["name"]).split("  --  ")[0],
 		game.credits_earned,
 		game.shift_bonus,

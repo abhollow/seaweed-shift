@@ -137,3 +137,36 @@ Each level's rundown lives in `docs/levels/NN-name.md`.
 Every level opens on an **intro card** -- the location in the wordmark's type
 over its own art, a line on what is different here, and START SHIFT! -- so a new
 location is a moment the player sees, and a new rule arrives with warning.
+
+
+## Adaptive difficulty
+
+Rather than hand-tuning each beach, the seaweed spawn rate follows the player
+(`Game.adapt`, multiplied into `Game.spawn_scale()`):
+
+| Outcome | Effect on the spawn rate |
+|---|---|
+| Fail a shift | the retry spawns **10% less** |
+| Finish a shift first try | the next shift spawns **6% more** |
+| Finish after one or more fails | no change -- that shift was about right |
+
+The asymmetry is the point. The steps balance when roughly **two shifts in three
+are finished first try** (ln(1/0.9) / (ln(1/0.9) + ln 1.06) = 0.64), so a player
+settles where they mostly succeed but still fail now and then -- never breezing
+through every shift, never failing the same one again and again.
+
+Clamped between 60% and 150% of normal. Carried across levels -- it measures the
+player, not the beach -- and saved with progress, so quitting mid-way does not
+reset it. The failure panel says the beach will be quieter next time; the
+summary after a first-try finish says the next beach will be busier.
+
+Per-beach `spawn_scale` (Holbox 0.75) still applies underneath it.
+
+## HUD safe area
+
+The game keeps its 9:16 shape, so on tall phones it is letterboxed, and the
+black bars already clear the notch and status bar. The HUD used to add the whole
+notch height anyway, pushing MENU and SHOP (and the bottom strip) inward for
+nothing. `Hud.inset_in_game()` now counts only the part of an inset that
+reaches past the letterbox bar -- zero on most modern phones -- and the buttons
+sit 4px from the top.

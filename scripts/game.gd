@@ -103,6 +103,23 @@ var ferry: Ferry
 var vip: VipZone
 var vip_weight := 1.0
 var night: Night
+
+# ---- Adaptive difficulty ----------------------------------------------------
+# Rather than hand-tuning each beach, the seaweed rate follows the player:
+#   * FAIL a shift          -> the retry spawns 10% less.
+#   * FINISH first try      -> the next shift spawns 6% more.
+#   * FINISH after failing  -> no change: that shift was about right.
+# The steps balance when roughly two shifts in three are finished first try,
+# so a player settles where they mostly succeed but still fail now and then --
+# never breezing through, never stuck failing again and again. Clamped, carried
+# across levels (it measures the player, not the beach), and saved.
+const ADAPT_FAIL := 0.90
+const ADAPT_CLEAN := 1.06
+const ADAPT_MIN := 0.6
+const ADAPT_MAX := 1.5
+var adapt := 1.0
+var shift_fails := 0          # failed attempts at the current shift
+var last_adapt := 0           # -1 eased after a fail, +1 raised after a clean run, 0 unchanged
 var surf: Surf
 var holbox: Holbox
 var stream: Stream
@@ -541,8 +558,24 @@ func seaweed_cap() -> int:
 func spawn_scale() -> float:
 	# A level can arrive with less seaweed, across all its shifts. Holbox uses
 	# it: collecting from all 360 degrees of an island is more walking than
-	# working one straight beach, even with the skip in the middle.
-	return maxf(0.1, float(Beaches.for_level(level).get("spawn_scale", 1.0)))
+	# working one straight beach, even with the skip in the middle. On top of
+	# that sits the adaptive multiplier, which follows the player.
+	return maxf(0.1, float(Beaches.for_level(level).get("spawn_scale", 1.0))) * adapt
+
+
+func adapt_after_fail() -> void:
+	shift_fails += 1
+	adapt = maxf(ADAPT_MIN, adapt * ADAPT_FAIL)
+	last_adapt = -1
+
+
+func adapt_after_finish() -> void:
+	if shift_fails == 0:
+		adapt = minf(ADAPT_MAX, adapt * ADAPT_CLEAN)
+		last_adapt = 1
+	else:
+		last_adapt = 0
+	shift_fails = 0           # the next shift is a fresh start
 
 
 func storm_mult() -> float:
@@ -670,6 +703,8 @@ func _check_level_failed() -> void:
 
 func fail_shift() -> void:
 	level_failed = true
+	adapt_after_fail()
+	_save_progress()
 	joystick.active = false
 	shop.visible = false
 	get_tree().paused = true
@@ -743,6 +778,7 @@ func reputation_bonus() -> int:
 
 func finish_level() -> void:
 	level_done = true
+	adapt_after_finish()
 	shift_bonus = reputation_bonus()
 	credits += shift_bonus
 	joystick.active = false
@@ -1155,6 +1191,8 @@ func _load_progress() -> void:
 	free_play = bool(data.get("free_play", false))
 	level_index = clampi(level_index, 0, Levels.LIST.size() - 1)
 	level = maxi(1, int(data.get("level", 1)))
+	adapt = clampf(float(data.get("adapt", 1.0)), ADAPT_MIN, ADAPT_MAX)
+	shift_fails = maxi(0, int(data.get("shift_fails", 0)))
 	var saved_retained = data.get("retained", {})
 	if typeof(saved_retained) == TYPE_DICTIONARY:
 		retained = saved_retained.duplicate()
@@ -1178,6 +1216,8 @@ func _save_progress() -> void:
 		"free_play": free_play,
 		"level": level,
 		"retained": retained,
+		"adapt": adapt,
+		"shift_fails": shift_fails,
 	})
 
 

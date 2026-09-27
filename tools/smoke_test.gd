@@ -715,6 +715,7 @@ func _run() -> void:
 	check("shop is locked out after failing", game.toggle_shop() == null
 		and not game.shop.visible)
 	game.retry_shift()
+	check("a real failed shift eases the next attempt", game.last_adapt == -1 and game.shift_fails >= 1)
 	check("retrying a failed shift does not replay the intro",
 		not game.level_intro.visible)
 	await sim(0.4)
@@ -1502,7 +1503,7 @@ func _run() -> void:
 	game.level = 1
 	game.apply_beach()
 	check("every other beach is banded", not Zones.RADIAL and game._water.visible)
-	check("and keeps the normal seaweed rate", is_equal_approx(game.spawn_scale(), 1.0))
+	check("and keeps the normal seaweed rate", is_equal_approx(game.spawn_scale() / game.adapt, 1.0))
 	game.level = 6
 	game.apply_beach()
 	check("Holbox is a round island", Zones.RADIAL)
@@ -1521,7 +1522,7 @@ func _run() -> void:
 
 	# no storms and no Happy Hour here
 	check("no storms on Holbox", not game.weather.storms_allowed())
-	check("seaweed arrives more slowly, on every shift", game.spawn_scale() < 1.0)
+	check("seaweed arrives more slowly, on every shift", game.spawn_scale() / game.adapt < 1.0)
 	game.happy_hour = false
 	game.weather._happy_t = Weather.HAPPY_EVERY + 1.0
 	game.weather._tick_happy_hour(0.1)
@@ -1776,8 +1777,8 @@ func _run() -> void:
 	var calm_push: float = st.push_at(in_it, false).length()
 	var calm_w: float = st.width()
 	st.start_flood()
-	check("a flash flood swells the stream", st.width() > calm_w * 1.5)
-	check("and it runs faster", st.push_at(in_it, false).length() > calm_push * 1.8)
+	check("a flood is its debris -- the stream does not swell or turn",
+		is_equal_approx(st.width(), calm_w) and is_equal_approx(st.push_at(in_it, false).length(), calm_push))
 	check("and the HUD says so", st.status_text().contains("FLOOD"))
 	for i in 40:
 		st.tick(0.1)
@@ -1859,16 +1860,28 @@ func _run() -> void:
 		game.mat.tick(0.1)
 		ticks += 1
 	check("slowly -- with long warning", ticks > 150)
-	var landed := 0
-	var near := true
+	var landed_units := 0
+	var heaps := 0
 	for c in game.world.get_children():
 		if c is Seaweed and not c.is_queued_for_deletion():
 			var q := c as Seaweed
 			if q.sargassum and not q.drifting:
-				landed += 1
-				if absf(q.position.x - clampf(game.mat.mat_x, 0.0, 360.0)) > 200.0:
-					near = false
-	check("it breaks up into sargassum piles on the shore", landed == game.mat.piles_for(0))
+				landed_units += q.units
+				if q.heap_showing():
+					heaps += 1
+	check("it comes ashore as a big sargassum heap", heaps >= 1 and landed_units == game.mat.units_for(0))
+	var big: Seaweed = null
+	for c in game.world.get_children():
+		if c is Seaweed and (c as Seaweed).heap_showing():
+			big = c
+	if big != null:
+		check("drawn as a grouped mound, at the art's own pixel scale",
+			Seaweed.HEAP_FRAMES.has(big._sprite.texture) and big._sprite.scale == Vector2(2, 2))
+		check("holding more than an ordinary pile", big.units > Seaweed.MAX_PILE or game.mat.units_for(0) <= Seaweed.HEAP_MAX)
+		big.units = Seaweed.HEAP_SHOWS - 1
+		big._refresh()
+		check("and raked down, it becomes an ordinary pile again",
+			not big.heap_showing() and big._size < 64.0 and not Seaweed.HEAP_FRAMES.has(big._sprite.texture))
 	check("and the HUD says it has come ashore", game.mat.status_text().contains("ASHORE"))
 	for c in game.world.get_children():
 		if c is Seaweed:
@@ -1876,6 +1889,54 @@ func _run() -> void:
 	game.player.capacity = keep_cap
 	game.level = 1
 	game.apply_beach()
+
+	print("\n[adaptive difficulty]")
+	var keep_adapt: float = game.adapt
+	var keep_fails: int = game.shift_fails
+	game.adapt = 1.0
+	game.shift_fails = 0
+	game.adapt_after_fail()
+	check("failing a shift eases the next attempt", is_equal_approx(game.adapt, 0.9) and game.last_adapt == -1)
+	game.adapt_after_finish()
+	check("finishing after a fail leaves it alone", is_equal_approx(game.adapt, 0.9) and game.last_adapt == 0)
+	check("and the next shift starts with a clean record", game.shift_fails == 0)
+	game.adapt_after_finish()
+	check("finishing first try makes the next shift busier", is_equal_approx(game.adapt, 0.9 * 1.06) and game.last_adapt == 1)
+	var lvl_keep: int = game.level
+	game.level = 1
+	var sc: float = game.spawn_scale()
+	check("and it drives the seaweed rate", is_equal_approx(sc, game.adapt))
+	for i in 60:
+		game.adapt_after_fail()
+	check("never easier than the floor", is_equal_approx(game.adapt, Game.ADAPT_MIN))
+	game.shift_fails = 0
+	for i in 60:
+		game.adapt_after_finish()
+	check("never harder than the ceiling", is_equal_approx(game.adapt, Game.ADAPT_MAX))
+	# where it settles: the steps balance near two-in-three first-try finishes
+	var p_clean: float = log(1.0 / Game.ADAPT_FAIL) / (log(1.0 / Game.ADAPT_FAIL) + log(Game.ADAPT_CLEAN))
+	check("it settles where most shifts -- not all -- are finished first try",
+		p_clean > 0.55 and p_clean < 0.75)
+	game.adapt = 0.8
+	game.shift_fails = 1
+	game._save_progress()
+	game.adapt = 1.0
+	game.shift_fails = 0
+	game._load_progress()
+	check("it is saved with your progress", is_equal_approx(game.adapt, 0.8) and game.shift_fails == 1)
+	game.adapt = keep_adapt
+	game.shift_fails = keep_fails
+	game.level = lvl_keep
+	game._save_progress()
+
+	print("\n[screen insets]")
+	# A tall phone: the 9:16 game is letterboxed, and the bar clears the notch.
+	check("on a tall phone the notch sits in the black bar -- no inset",
+		is_zero_approx(Hud.inset_in_game(100.0, Vector2(1080, 2400), Vector2(360, 640))))
+	# An exactly 9:16 phone: no bar, so the notch does cover the game.
+	check("on an exactly 9:16 phone the notch is allowed for",
+		absf(Hud.inset_in_game(90.0, Vector2(1080, 1920), Vector2(360, 640)) - 30.0) < 0.1)
+	check("the MENU and SHOP buttons sit right at the top", Hud.BTN_Y <= 4.0)
 
 	print("\n[levels and retention]")
 	paused = false

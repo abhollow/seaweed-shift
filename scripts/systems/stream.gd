@@ -11,8 +11,8 @@ extends Node2D
 #             after playtest -- nobody needed it.
 #   MOUTH     Seaweed lying in the stream floats down to its mouth and piles up
 #             there, so the mouth becomes a hotspot that grows if ignored.
-#   FLOOD     The signature event: rain up in the mangroves swells the stream --
-#             wider, faster, muddy -- and flushes a batch of debris down it.
+#   FLOOD     The signature event: rain up in the mangroves flushes a batch of
+#             debris down the stream; the flow flecks run quicker while it lasts.
 #
 # The path is traced from the art (points in world px, upstream first).
 
@@ -103,7 +103,9 @@ func point_at(s: float) -> Dictionary:
 
 
 func width() -> float:
-	return half_w * (1.7 if flooding() else 1.0)
+	# The flood no longer swells the stream: playtest found the debris coming
+	# down it was event enough, and a wider stream you cannot see is a trap.
+	return half_w
 
 
 func has_bridge() -> bool:
@@ -133,7 +135,7 @@ func push_at(p: Vector2, on_vehicle: bool) -> Vector2:
 	if not in_stream(p):
 		return Vector2.ZERO
 	var c := closest(p)
-	var f := current * (2.0 if flooding() else 1.0) * (VEHICLE_PUSH if on_vehicle else 1.0)
+	var f := current * (VEHICLE_PUSH if on_vehicle else 1.0)
 	return (c["dir"] as Vector2) * f
 
 
@@ -214,31 +216,15 @@ func _float_seaweed(delta: float) -> void:
 func _draw() -> void:
 	if not active:
 		return
-	var f := flooding()
-	if f:
-		# The swollen stream: warm, churned mud with a lighter core. The first
-		# version was a flat grey-brown band with evenly spaced white dashes,
-		# which read as a road with lane markings rather than floodwater.
-		var a := clampf(minf(_flood_t / 1.5, (flood_len - _flood_t) / 1.5), 0.0, 1.0)
-		draw_polyline(points, Color(0.50, 0.33, 0.16, 0.72 * a), width() * 2.0)
-		draw_polyline(points, Color(0.66, 0.48, 0.27, 0.55 * a), width() * 1.1)
-		# Churned foam: uneven clumps scattered across the width, not a line.
-		for i in 60:
-			var fs := fposmod(float(i) * 37.3 + _anim * 55.0, _total)
-			var q: Dictionary = point_at(fs)
-			var d: Vector2 = q["dir"]
-			var off := sin(float(i) * 12.9898) * width() * 0.85
-			var sz := 2.0 + fposmod(float(i) * 7.1, 2.0)
-			draw_rect(Rect2((q["pt"] as Vector2) + Vector2(-d.y, d.x) * off, Vector2(sz, sz)),
-				Color(0.95, 0.88, 0.72, 0.7 * a))
-	else:
-		# Flecks showing which way the water runs.
-		for s in _flecks:
-			var q: Dictionary = point_at(float(s))
-			var p: Vector2 = q["pt"]
-			var d: Vector2 = q["dir"]
-			var side := Vector2(-d.y, d.x) * sin(float(s) * 0.7) * width() * 0.5
-			draw_line(p + side, p + side + d * 5.0, Color(1, 1, 1, 0.4), 1.5)
+	# Flecks showing which way the water runs -- quicker during a flood, which
+	# is the only sign of it besides the debris. (The first pass also turned
+	# the stream brown; playtest found that unnecessary.)
+	for s in _flecks:
+		var q: Dictionary = point_at(float(s))
+		var p: Vector2 = q["pt"]
+		var d: Vector2 = q["dir"]
+		var side := Vector2(-d.y, d.x) * sin(float(s) * 0.7) * width() * 0.5
+		draw_line(p + side, p + side + d * 5.0, Color(1, 1, 1, 0.4), 1.5)
 	if has_bridge():
 		_draw_bridge()
 

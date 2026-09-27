@@ -84,16 +84,28 @@ func tick(delta: float) -> void:
 	queue_redraw()
 
 
+func units_for(shift_index: int) -> int:
+	# Two units per "pile" of the per-shift table: 8 / 12 / 16 / 20.
+	return piles_for(shift_index) * 2
+
+
 func _break_up() -> void:
-	# The mat breaks up on the shore into a heap of sargassum piles, spread
-	# across the stretch of beach it came in on.
+	# The mat comes ashore as big HEAPS of sargassum -- grouped mounds of up to
+	# twelve units -- across the stretch of beach it came in on, with any
+	# remainder as an ordinary pile.
 	if game != null:
-		var n := piles_for(game.level_index)
-		for i in n:
-			var x := mat_x + randf_range(-mat_width * 0.5, mat_width * 0.5)
-			var y := randf_range(Zones.SHORE_Y - 26.0, Zones.SHORE_Y - 2.0)
-			var sw: Seaweed = game.spawner._add_seaweed(Vector2(clampf(x, 16.0, Zones.VIEW_W - 16.0), y), 2, false, false)
-			sw.make_sargassum()
+		var left := units_for(game.level_index)
+		var spots := int(ceil(float(left) / float(Seaweed.HEAP_MAX)))
+		for i in spots:
+			var u := mini(left, Seaweed.HEAP_MAX)
+			left -= u
+			var x := mat_x + (float(i) - float(spots - 1) * 0.5) * 72.0
+			var y := Zones.SHORE_Y - 14.0
+			var sw: Seaweed = game.spawner._add_seaweed(Vector2(clampf(x, 44.0, Zones.VIEW_W - 44.0), y), u, false, false)
+			if u >= Seaweed.HEAP_SHOWS:
+				sw.make_heap()
+			else:
+				sw.make_sargassum()
 		game.shake(4.0, 0.25)
 		game.sfx("dump", 0.55, -5.0)
 	mat_x = -1.0

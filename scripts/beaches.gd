@@ -263,6 +263,10 @@ const LIST := {
 	8: {
 		"name": "Mahahual",
 		"tagline": "Sargassum season. Golden weed is heavy and rots fast -- and watch for the mat coming in.",
+		"music": [
+			"res://audio/Tense_Beach_Game_1.mp3",
+			"res://audio/Tense_Beach_Game_2.mp3",
+		],
 		# Half of what washes in is sargassum: two slots per unit, worth double,
 		# rots 1.5x as fast. The MAT drifts in slowly from far out and breaks up
 		# into sargassum piles where it lands -- more of them each shift.

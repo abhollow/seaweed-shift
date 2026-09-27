@@ -28,14 +28,14 @@ The stream's path is traced from the art (`scripts/beaches.gd`, level 7's
 ## Signature event -- the flash flood
 
 First at ~40s, then every ~60s (+/-15%), for 12s: rain up in the mangroves
-swells the stream to 1.7x its width, doubles the current, and flushes five
-clumps of debris down from the top, one every 0.6s -- you watch them float down
-to the mouth. The bridge stays safe throughout. HUD: FLASH FLOOD -- DEBRIS
+flushes five clumps of debris down from the top, one every 0.6s -- you watch
+them float down to the mouth. The flow flecks run quicker while it lasts.
+
+The first pass also swelled the stream, doubled the current and turned it
+muddy brown; playtest found the debris was event enough. (A wider stream with
+no visual to match would also have been a trap.) HUD: FLASH FLOOD -- DEBRIS
 COMING DOWN THE STREAM.
 
-Drawn as warm churned mud with scattered foam. The first version was a flat
-grey-brown band with evenly spaced white dashes, which read as a road with lane
-markings.
 
 ## A bug this level found
 
