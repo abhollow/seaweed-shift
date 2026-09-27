@@ -213,7 +213,7 @@ func wind_push(moving: bool) -> float:
 
 
 func in_water() -> bool:
-	return position.y >= Zones.SHALLOW_TOP
+	return ground_depth() >= Zones.SHALLOW_TOP
 
 
 func _current_set() -> Array[Texture2D]:
@@ -277,9 +277,10 @@ func current_speed() -> float:
 	# speed -- enough that reaching the seaweed out there is not worth it until
 	# the waders are bought. Deep water is heavy going even kitted out, but by
 	# the time you can get there the waders are already a prerequisite.
-	if position.y >= deep_y:
+	var gd := ground_depth()
+	if gd >= deep_y:
 		s *= 0.72
-	elif position.y >= shallow_y:
+	elif gd >= shallow_y:
 		if on_vehicle:
 			# Road tyres bog down in wet sand. Sand Tires is to the tractor what
 			# the waders are on foot: the shallows stay reachable but slow until
@@ -295,12 +296,17 @@ func is_full() -> bool:
 	return carried >= capacity
 
 
-func add_seaweed(n: int, value: int) -> void:
+func can_carry(weight: int = 1) -> bool:
+	return capacity - carried >= weight
+
+
+func add_seaweed(n: int, value: int, weight: int = 1) -> void:
+	# weight: slots each unit takes. Sargassum is heavy -- two per unit.
 	var room: int = capacity - carried
-	var taken: int = min(n, room)
+	var taken: int = min(n, room / maxi(weight, 1))
 	if taken <= 0:
 		return
-	carried += taken
+	carried += taken * weight
 	carried_value += value * taken
 
 
@@ -344,6 +350,10 @@ func _physics_process(delta: float) -> void:
 
 	var dir: Vector2 = joystick.direction if joystick != null else Vector2.ZERO
 	velocity = dir * current_speed()
+	# Wading a stream (Puerto Morelos): slower, and carried downstream.
+	if game != null and game.stream != null and game.stream.active:
+		velocity *= game.stream.slow_at(position)
+		velocity += game.stream.push_at(position, on_vehicle)
 	velocity.x += wind_push(dir.length() > 0.05)
 	move_and_slide()
 
@@ -363,13 +373,85 @@ func _physics_process(delta: float) -> void:
 	_clamp_position()
 
 
+func ground_depth() -> float:
+	# How far out to sea the worker is standing. On a Holbox sandbar they are
+	# out past the waterline but on dry ground -- no wading slowdown.
+	var d := Zones.depth(position)
+	if game != null and game.holbox != null and game.holbox.on_sandbar(position):
+		d = minf(d, Zones.SHALLOW_TOP - 1.0)
+	return d
+
+
 func _clamp_position() -> void:
+	if Zones.RADIAL:
+		_clamp_radial()
+		return
 	position.x = clampf(position.x, 16.0, 344.0)
 	# The loading bay is a driveway cut into the hotel grounds, so across its
 	# width the player can go further up the screen than anywhere else. Which
 	# side it sits on is per level.
 	var top := bay_min_y if (position.x > bay_x0 and position.x < bay_x1) else min_y
 	position.y = clampf(position.y, top, max_y)
+
+
+func _clamp_radial() -> void:
+	# A round island. The worker walks the beach ring and can go no further out
+	# than allowed. Where the island has a village, its streets and central
+	# plaza are open and the homes between them are solid; otherwise the resort
+	# compound is solid and only the bay cuts into it.
+	var v := position - Zones.CENTER
+	var r := v.length()
+	var dir := v / r if r > 0.001 else Vector2(0, 1)
+	var hi := max_y
+	if game != null and game.holbox != null:
+		hi = maxf(hi, game.holbox.sandbar_reach(position))
+	if r > hi:
+		position = Zones.CENTER + dir * hi
+	elif Zones.STREETS > 0:
+		var edge := Zones.HOTEL_BOTTOM + 4.0
+		if r < edge and not _in_village_open(v, r):
+			position = _nearest_open(v, r, edge)
+	else:
+		var lo := min_y
+		var bay := Rect2(Zones.BAY_POS - Zones.BAY_SIZE / 2.0, Zones.BAY_SIZE).grow(6.0)
+		if bay.has_point(position):
+			lo = 40.0
+		if r < lo:
+			position = Zones.CENTER + dir * lo
+	if game != null and game.holbox != null:
+		position = game.holbox.keep_on_sandbar(position, max_y)
+		position = game.holbox.keep_off_flamingos(position)
+	position.x = clampf(position.x, 16.0, 344.0)
+	position.y = clampf(position.y, 16.0, Zones.VIEW_H - 16.0)
+
+
+func _in_village_open(v: Vector2, r: float) -> bool:
+	# In the plaza, or on one of the streets.
+	if r <= Zones.PLAZA_R:
+		return true
+	var k := Zones.nearest_street(Zones.CENTER + v)
+	var ax := Zones.street_axis(k)
+	var lat := v.dot(Vector2(-ax.y, ax.x))
+	return v.dot(ax) > 0.0 and absf(lat) <= Zones.STREET_HALF_W
+
+
+func _nearest_open(v: Vector2, r: float, edge: float) -> Vector2:
+	# Pushed out of a home to the nearest open ground -- the street alongside,
+	# the plaza, or the beach -- so the worker slides along walls instead of
+	# jumping across the village.
+	var dir := v / r if r > 0.001 else Vector2(0, 1)
+	var k := Zones.nearest_street(Zones.CENTER + v)
+	var ax := Zones.street_axis(k)
+	var n := Vector2(-ax.y, ax.x)
+	# A fraction inside the edge: exactly on it, rounding can leave the worker
+	# just outside the street and in the house again.
+	var hw := Zones.STREET_HALF_W - 0.5
+	var on_street := Zones.CENTER + ax * maxf(v.dot(ax), 0.0) + n * clampf(v.dot(n), -hw, hw)
+	var best := on_street
+	for q in [Zones.CENTER + dir * Zones.PLAZA_R, Zones.CENTER + dir * edge]:
+		if (Zones.CENTER + v).distance_to(q) < (Zones.CENTER + v).distance_to(best):
+			best = q
+	return best
 
 
 # Knocked back by a wave (Bacalar). The worker is carried shoreward, then takes a

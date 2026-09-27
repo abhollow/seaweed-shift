@@ -53,6 +53,7 @@ const STORM_SPEED := 0.55
 const GUST_SHOVE := 0.3
 const GUST_SHOVE_ROWDY := 0.5      # drunks have less footing
 const GUST_LEAN := 0.22
+const TOURIST_STREAM := 0.8
 
 # Which way the source art was drawn, same convention as Player. Flip this one
 # constant if a future sheet comes back facing the other way.
@@ -70,6 +71,8 @@ var rowdy := false
 var female := false
 
 var _state: int = State.DESCEND
+var _out := Vector2(0, 1)
+var _perp := Vector2(1, 0)
 var _phase := 0.0
 var _splash_left := 0.0
 var _lurch_t := 0.0
@@ -92,6 +95,11 @@ func setup(pos: Vector2, ty: float, is_rowdy: bool = false, dy: float = 150.0,
 	position = pos
 	target_y = ty
 	despawn_y = dy
+	# The direction this tourist walks out to sea: straight down a banded
+	# beach, radially outward round an island. _perp is its sideways weave.
+	# On a banded beach these are (0, 1) and (1, 0), so movement is unchanged.
+	_out = Zones.outward(pos)
+	_perp = Vector2(_out.y, -_out.x)
 	rowdy = is_rowdy
 	female = is_female
 	_phase = randf() * TAU
@@ -143,13 +151,14 @@ func _face(lateral: float) -> void:
 
 
 func in_water() -> bool:
-	return position.y >= Zones.SHALLOW_TOP
+	return Zones.depth(position) >= Zones.SHALLOW_TOP
 
 
 func _frame_set() -> Array[Texture2D]:
-	# Heading back up the beach means we see their back. ASCEND is the only
-	# state that travels away from the camera.
-	var back := _state == State.ASCEND
+	# We see their back when they walk UP the screen -- heading back up a
+	# banded beach, or walking out across the top half of an island.
+	var heading := -_out if _state == State.ASCEND else _out
+	var back := heading.y < -0.3
 	var wading := in_water()
 
 	var f: Array[Texture2D]
@@ -217,31 +226,37 @@ func _process(delta: float) -> void:
 		lateral = lateral * 0.5 + _lurch_vel
 		rotation = sin(_phase * 0.7) * 0.28
 
-	_face(lateral)
+	var heading := -_out if _state == State.ASCEND else _out
+	_face(heading.x * speed + _perp.x * lateral)
 
 	match _state:
 		State.DESCEND:
-			position.y += speed * fwd * delta
-			position.x += lateral * delta
-			if position.y >= target_y:
+			position += _out * (speed * fwd * delta) + _perp * (lateral * delta)
+			if Zones.depth(position) >= target_y:
 				_state = State.SPLASH
 				_splash_left = randf_range(1.5, 3.0) if rowdy else randf_range(2.5, 6.0)
 
 		State.SPLASH:
 			_splash_left -= delta
-			position.x += lateral * 1.2 * delta
-			position.y += sin(_phase * 0.9) * 18.0 * delta
+			position += _perp * (lateral * 1.2 * delta) + _out * (sin(_phase * 0.9) * 18.0 * delta)
 			if _splash_left <= 0.0:
 				_state = State.ASCEND
 
 		State.ASCEND:
-			position.y -= speed * (0.9 if rowdy else 1.15) * fwd * delta
-			position.x += lateral * 0.8 * delta
-			if position.y < despawn_y:
+			position += -_out * (speed * (0.9 if rowdy else 1.15) * fwd * delta) + _perp * (lateral * 0.8 * delta)
+			if Zones.depth(position) < despawn_y:
 				queue_free()
 
 	_tick_gust(delta)
+	_tick_stream(delta)
 	position.x = clampf(position.x, 12.0, 348.0)
+
+
+func _tick_stream(delta: float) -> void:
+	# Wading a stream (Puerto Morelos) carries tourists downstream too -- a
+	# little less than the worker, since they are only crossing, not working it.
+	if game != null and game.stream != null and game.stream.active:
+		position += game.stream.push_at(position, false) * TOURIST_STREAM * delta
 
 
 func _tick_gust(delta: float) -> void:

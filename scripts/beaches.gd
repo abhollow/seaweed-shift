@@ -168,24 +168,85 @@ const LIST := {
 		},
 	},
 	6: {
+		# A round island: the resort compound in the middle, a ring of sand, a
+		# ring of shallows, and deep water on every side. The ONLY radial level,
+		# so every zone value below is a RADIUS from the island's centre.
+		#
+		# Collecting is easy here -- the skip is in the middle, so every trip is
+		# short. Holbox is a change of pace and picture, not a step up in
+		# difficulty: storms and Happy Hour are switched off, and three
+		# signature events take their place.
 		"name": "Isla Holbox",
-		"tagline": "A tiny island, with sea on every side.",
+		"tagline": "A tiny round island. The skip is in the middle -- take any street in. Watch for whale sharks, low tide and flamingos.",
 		"background": "res://assets/sprites/background_level6.png",
-		"water": "res://assets/sprites/water6_%02d.png",
+		"water": "",
+		"no_storms": true,
+		"no_happy_hour": true,
+		# 25% less seaweed on every shift: it arrives from all 360 degrees, so
+		# the beach takes more walking to cover than a straight one.
+		"spawn_scale": 0.75,
+		"bin_offset": 0.0,
+		# The skip sits in the central plaza; eight streets run from it out to
+		# the beach, with homes between them. Every side of the island is the
+		# same short walk from the skip.
 		"zones": {
-			"hotel_bottom": 339.0,
-			"shallow_top": 448.0,
-			"deep_top": 512.0,
-			"shore_y": 442.0,
-			"water_top": 418.0,
-			"tourist_spawn_y": 329.0,
-			"tourist_despawn_y": 329.0,
-			"bay_pos": Vector2(106, 309),
+			"radial": true,
+			"center": Vector2(180, 320),
+			"depth_max": 270.0,
+			"hotel_bottom": 128.0,
+			"shore_y": 149.0,
+			"shallow_top": 155.0,
+			"deep_top": 208.0,
+			"water_top": 155.0,
+			"tourist_spawn_y": 34.0,
+			"tourist_despawn_y": 34.0,
+			"bay_pos": Vector2(180, 320),
+			"bay_size": Vector2(52, 52),
+			"streets": 8,
+			"street_offset": 0.0,
+			"street_half_w": 12.0,
+			"plaza_r": 34.0,
+		},
+		"holbox": {
+			"first": 20.0,
+			"every": 32.0,
+			"whale_len": 13.0,
+			"whale_crowd": 5,
+			"sandbar_len": 16.0,
+			"sandbar_reach": 60.0,
+			"sandbar_width": 28.0,
+			"sandbar_kelp": 3,
+			"flamingo_len": 20.0,
+			"flamingo_arc": 0.5,
+			"flamingo_count": 4,
 		},
 	},
 	7: {
 		"name": "Puerto Morelos",
-		"tagline": "A fishing town, and a stream that runs across the beach.",
+		"tagline": "A stream runs across the beach. Wade it and it carries you -- and the tourists -- out to sea.",
+		# Unassigned since level 2 became Veracruz; a sunny fishing town suits them.
+		"music": [
+			"res://audio/Island_Jump.mp3",
+			"res://audio/Island_Vibes.mp3",
+		],
+		# The stream, traced from the art, upstream first. Wading it slows the
+		# worker and carries them -- and tourists -- downstream. Seaweed in it
+		# floats down to the mouth. (A footbridge was tried and removed:
+		# playtest found it pointless.)
+		"stream": {
+			"points": [[72, 166], [94, 180], [119, 190], [132, 204], [135, 222], [136, 240],
+				[144, 251], [157, 261], [172, 270], [195, 280], [216, 290], [230, 300],
+				[239, 310], [246, 320], [252, 330], [258, 340], [263, 351], [268, 363],
+				[274, 374], [278, 383]],
+			"half_w": 9.0,
+			"current": 85.0,
+			"slow": 0.55,
+			"float_speed": 28.0,
+			"flood_first": 40.0,
+			"flood_every": 60.0,
+			"flood_len": 12.0,
+			"flood_debris": 5,
+		},
 		"background": "res://assets/sprites/background_level7.png",
 		"water": "res://assets/sprites/water7_%02d.png",
 		"zones": {
@@ -201,7 +262,18 @@ const LIST := {
 	},
 	8: {
 		"name": "Mahahual",
-		"tagline": "Sargassum season. The worst the coast has ever seen.",
+		"tagline": "Sargassum season. Golden weed is heavy and rots fast -- and watch for the mat coming in.",
+		# Half of what washes in is sargassum: two slots per unit, worth double,
+		# rots 1.5x as fast. The MAT drifts in slowly from far out and breaks up
+		# into sargassum piles where it lands -- more of them each shift.
+		"sargassum": {
+			"share": 0.5,
+			"mat_first": 30.0,
+			"mat_every": 65.0,
+			"mat_speed": 12.0,
+			"mat_width": 110.0,
+			"mat_piles": [4, 6, 8, 10],
+		},
 		"background": "res://assets/sprites/background_level8.png",
 		"water": "res://assets/sprites/water8_%02d.png",
 		"zones": {

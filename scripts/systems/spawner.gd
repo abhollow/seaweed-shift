@@ -78,7 +78,7 @@ func _tick_seaweed(delta: float) -> void:
 	# Typed explicitly: `game` is untyped to avoid a circular class dependency,
 	# so dividing by game.difficulty() makes the whole expression untyped.
 	var storm_m: float = float(game.storm_mult()) if game.storm_active else 1.0
-	var interval: float = SEAWEED_INTERVAL * storm_m / float(game.difficulty())
+	var interval: float = SEAWEED_INTERVAL * storm_m / (float(game.difficulty()) * float(game.spawn_scale()))
 	if _seaweed_t < interval:
 		return
 	_seaweed_t = 0.0
@@ -97,18 +97,28 @@ func spawn_seaweed(units: int) -> void:
 	var pos: Vector2
 	var drifts := true
 
+	# Bands by DEPTH, so on a round island seaweed arrives from every side.
+	# The sand band never reaches into the resort (it can on a narrow ring).
 	if roll < sand_w:
-		pos = Vector2(randf_range(24.0, 336.0),
-			randf_range(Zones.SHALLOW_TOP - 80.0, Zones.SHORE_Y - 6.0))
+		pos = _point(maxf(Zones.SHALLOW_TOP - 80.0, Zones.HOTEL_BOTTOM + 14.0), Zones.SHORE_Y - 6.0)
 		drifts = false
 	elif roll < sand_w + shallow_w:
-		pos = Vector2(randf_range(24.0, 336.0),
-			randf_range(Zones.SHALLOW_TOP + 14.0, Zones.DEEP_TOP - 12.0))
+		pos = _point(Zones.SHALLOW_TOP + 14.0, Zones.DEEP_TOP - 12.0)
 	else:
-		pos = Vector2(randf_range(24.0, 336.0),
-			randf_range(Zones.DEEP_TOP + 16.0, Zones.VIEW_H - 22.0))
+		pos = _point(Zones.DEEP_TOP + 16.0, Zones.DEPTH_MAX - 22.0)
 
-	_add_seaweed(pos, units, false, drifts)
+	var sw := _add_seaweed(pos, units, false, drifts)
+	# On a sargassum beach (Mahahual) a share of what washes in is sargassum.
+	if game.mat != null and randf() < game.mat.share:
+		sw.make_sargassum()
+
+
+func _point(d0: float, d1: float) -> Vector2:
+	# A spawn point between two depths. On a banded beach this is exactly the
+	# original x range; on a round island it is anywhere around the ring.
+	if Zones.RADIAL:
+		return Zones.random_point(d0, d1)
+	return Vector2(randf_range(24.0, 336.0), randf_range(d0, d1))
 
 
 func scatter(units: int, at: Vector2) -> void:
@@ -127,7 +137,7 @@ func scatter(units: int, at: Vector2) -> void:
 		var pos := at + Vector2(cos(a), sin(a) * 0.65) * d
 		# Keep the debris on playable sand, never in the resort or off-screen.
 		pos.x = clampf(pos.x, 16.0, Zones.VIEW_W - 16.0)
-		pos.y = clampf(pos.y, Zones.HOTEL_BOTTOM + 14.0, Zones.SHALLOW_TOP - 10.0)
+		pos = Zones.at_depth(pos, clampf(Zones.depth(pos), Zones.HOTEL_BOTTOM + 14.0, Zones.SHALLOW_TOP - 10.0))
 		_add_seaweed(pos, chunk, false, false)
 
 
@@ -141,8 +151,8 @@ func _tick_kelp(delta: float) -> void:
 	_kelp_t = 0.0
 	if count_seaweed(true) >= KELP_MAX:
 		return
-	var pos := Vector2(randf_range(28.0, 332.0),
-		randf_range(Zones.DEEP_TOP + 22.0, Zones.VIEW_H - 24.0))
+	var pos := Zones.random_point(Zones.DEEP_TOP + 22.0, Zones.DEPTH_MAX - 24.0) if Zones.RADIAL \
+		else Vector2(randf_range(28.0, 332.0), randf_range(Zones.DEEP_TOP + 22.0, Zones.VIEW_H - 24.0))
 	_add_seaweed(pos, 5, true, false)
 
 
@@ -171,7 +181,15 @@ func find_pile_near(pos: Vector2, ignore) -> Seaweed:
 		if not (c is Seaweed) or c == ignore:
 			continue
 		var sw := c as Seaweed
-		if sw.drifting or sw.kelp or sw.units >= Seaweed.MAX_PILE:
+		# Never merge into a pile already on its way out. Two clumps arriving
+		# on the same tick could otherwise merge the first into the second,
+		# then the second into the first -- both queued for deletion, and the
+		# seaweed silently gone. Found through the Puerto Morelos stream, but
+		# the same search runs whenever drifting seaweed beaches, on any level.
+		if sw.drifting or sw.kelp or sw.units >= Seaweed.MAX_PILE or sw.is_queued_for_deletion():
+			continue
+		# Sargassum only piles up with sargassum, seaweed with seaweed.
+		if ignore is Seaweed and (ignore as Seaweed).sargassum != sw.sargassum:
 			continue
 		var d := sw.global_position.distance_to(pos)
 		if d < best_d:
@@ -201,26 +219,44 @@ func _tick_tourists(delta: float) -> void:
 		# The whole bar empties onto the sand and heads for open water, which
 		# means the crowd crosses every zone the player wants to work in.
 		_tourist_next = randf_range(HAPPY_TOURIST_MIN, HAPPY_TOURIST_MAX)
-		target = randf_range(Zones.DEEP_TOP + 30.0, Zones.VIEW_H - 30.0)
+		target = randf_range(Zones.DEEP_TOP + 30.0, Zones.DEPTH_MAX - 30.0)
 	else:
 		# Splash target reaches up to the shoreline, so tourists park themselves
 		# right on top of the pile you most want to be working.
 		_tourist_next = float(randf_range(TOURIST_INTERVAL_MIN, TOURIST_INTERVAL_MAX)) \
 			/ float(game.difficulty())
-		if randf() < DEEP_SWIMMER_CHANCE:
-			target = randf_range(Zones.DEEP_TOP + 24.0, Zones.VIEW_H - 34.0)
+		# No deep swimmers round an island: most of its deep water is off
+		# the sides of the screen, and Holbox is not meant to be hard.
+		if randf() < DEEP_SWIMMER_CHANCE and not Zones.RADIAL:
+			target = randf_range(Zones.DEEP_TOP + 24.0, Zones.DEPTH_MAX - 34.0)
 		else:
 			target = randf_range(Zones.SHORE_Y - 10.0, Zones.DEEP_TOP - 20.0)
 
+	# On a windy beach, arrive a little upwind, so gusts carry tourists ACROSS
+	# the sand rather than into the downwind corner -- where the bay is. Round
+	# an island they walk out from the compound in any direction.
+	var start: Vector2
+	if Zones.RADIAL:
+		# Out of the village along a street, or from the compound's edge.
+		var a := Zones.street_angle(randi() % Zones.STREETS) if Zones.STREETS > 0 else randf() * TAU
+		start = Zones.CENTER + Vector2(cos(a), sin(a)) * Zones.TOURIST_SPAWN_Y
+	else:
+		var hi := 330.0 - (70.0 if (game.wind != null and game.wind.active()) else 0.0)
+		start = Vector2(randf_range(30.0, hi), Zones.TOURIST_SPAWN_Y)
+	make_tourist(start, target, game.happy_hour)
+
+
+func make_tourist(start: Vector2, target: float, rowdy: bool) -> Tourist:
+	# Straight coin flip on sex, during Happy Hour as well as ordinary trickle.
 	var t: Tourist = TOURIST_SCENE.instantiate()
 	t.game = game
-	# Straight coin flip, during Happy Hour as well as ordinary trickle.
-	# On a windy beach, arrive a little upwind, so gusts carry tourists ACROSS
-	# the sand rather than into the downwind corner -- where the bay is.
-	var hi := 330.0 - (70.0 if (game.wind != null and game.wind.active()) else 0.0)
-	t.setup(Vector2(randf_range(30.0, hi), Zones.TOURIST_SPAWN_Y),
-		target, game.happy_hour, Zones.TOURIST_DESPAWN_Y, randf() < 0.5)
+	t.setup(start, target, rowdy, Zones.TOURIST_DESPAWN_Y, randf() < 0.5)
+	# Round an island they walk out along narrow streets -- a wide weave would
+	# carry them through the houses.
+	if Zones.RADIAL:
+		t.weave *= 0.3
 	game.world.add_child(t)
+	return t
 
 
 func count_tourists() -> int:
@@ -244,6 +280,7 @@ func _tick_packages(delta: float) -> void:
 	_package_next = randf_range(PACKAGE_EVERY_MIN, PACKAGE_EVERY_MAX) * rate
 
 	var pk: Package = PACKAGE_SCENE.instantiate()
-	pk.setup(Vector2(randf_range(30.0, 330.0),
-		randf_range(Zones.DEEP_TOP + 26.0, Zones.VIEW_H - 26.0)), game)
+	var ppos := Zones.random_point(Zones.DEEP_TOP + 26.0, Zones.DEPTH_MAX - 26.0) if Zones.RADIAL \
+		else Vector2(randf_range(30.0, 330.0), randf_range(Zones.DEEP_TOP + 26.0, Zones.VIEW_H - 26.0))
+	pk.setup(ppos, game)
 	game.world.add_child(pk)

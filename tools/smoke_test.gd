@@ -968,12 +968,22 @@ func _run() -> void:
 	for lv in range(1, 11):
 		game.level = lv
 		game.apply_beach()
+		# By DEPTH, so the same test holds on a banded beach and a round island:
+		# the bay must straddle the resort's edge, whichever way out to sea is.
+		var bay := Rect2(Zones.BAY_POS - Zones.BAY_SIZE / 2.0, Zones.BAY_SIZE)
+		var near := INF
+		var far := 0.0
+		for q in [bay.position, bay.end, Vector2(bay.position.x, bay.end.y), Vector2(bay.end.x, bay.position.y),
+				Vector2(bay.position.x, bay.get_center().y), Vector2(bay.end.x, bay.get_center().y),
+				Vector2(bay.get_center().x, bay.position.y), Vector2(bay.get_center().x, bay.end.y)]:
+			near = minf(near, Zones.depth(q))
+			far = maxf(far, Zones.depth(q))
 		var ok: bool = Zones.HOTEL_BOTTOM < Zones.SHORE_Y \
 			and Zones.SHORE_Y < Zones.SHALLOW_TOP \
-			and Zones.SHALLOW_TOP < Zones.DEEP_TOP and Zones.DEEP_TOP < Zones.VIEW_H \
-			and Zones.WATER_TOP < Zones.SHALLOW_TOP \
-			and Zones.BAY_POS.y - Zones.BAY_SIZE.y / 2.0 < Zones.HOTEL_BOTTOM \
-			and Zones.BAY_POS.y + Zones.BAY_SIZE.y / 2.0 > Zones.HOTEL_BOTTOM \
+			and Zones.SHALLOW_TOP < Zones.DEEP_TOP and Zones.DEEP_TOP < Zones.DEPTH_MAX \
+			and (Zones.RADIAL or Zones.WATER_TOP < Zones.SHALLOW_TOP) \
+			and ((near < Zones.HOTEL_BOTTOM and far > Zones.HOTEL_BOTTOM)
+				or (Zones.RADIAL and Zones.STREETS > 0 and Zones.depth(Zones.BAY_POS) < Zones.PLAZA_R)) \
 			and Zones.TOURIST_SPAWN_Y < Zones.HOTEL_BOTTOM \
 			and game._bg_sprite.texture.resource_path.ends_with("background_level%d.png" % lv)
 		if not ok:
@@ -1484,6 +1494,386 @@ func _run() -> void:
 		if game.owned.has(String(up["id"])):
 			game.apply_upgrade(String(up["id"]))
 	game._recompute_carry()
+	game.level = 1
+	game.apply_beach()
+
+	print("\n[isla holbox]")
+	paused = false
+	game.level = 1
+	game.apply_beach()
+	check("every other beach is banded", not Zones.RADIAL and game._water.visible)
+	check("and keeps the normal seaweed rate", is_equal_approx(game.spawn_scale(), 1.0))
+	game.level = 6
+	game.apply_beach()
+	check("Holbox is a round island", Zones.RADIAL)
+	check("depth is distance from the island's centre",
+		is_equal_approx(Zones.depth(Zones.CENTER + Vector2(0, -100)), 100.0))
+	check("the horizontal water strip is switched off", not game._water.visible)
+	var ring_ok := true
+	var shown := 0
+	for b in game._buoys.get_children():
+		if (b as CanvasItem).visible:
+			shown += 1
+			var bp: Vector2 = (b as Node2D).position if b is Node2D else (b as Control).position + Vector2(4, 4)
+			if absf(Zones.depth(bp) - Zones.DEEP_TOP) > 2.0:
+				ring_ok = false
+	check("the buoys ring the island at the deep line", ring_ok and shown > 0)
+
+	# no storms and no Happy Hour here
+	check("no storms on Holbox", not game.weather.storms_allowed())
+	check("seaweed arrives more slowly, on every shift", game.spawn_scale() < 1.0)
+	game.happy_hour = false
+	game.weather._happy_t = Weather.HAPPY_EVERY + 1.0
+	game.weather._tick_happy_hour(0.1)
+	check("no Happy Hour on Holbox", not game.happy_hour)
+
+	# the worker lives on the beach ring, and walks the streets into the village
+	for c in game.world.get_children():
+		if c is Tourist or c is Seaweed:
+			c.free()
+	var keep_o6: Dictionary = game.owned.duplicate()
+	game.owned.clear()
+	game._reset_player_stats()
+	game._recompute_carry()
+	game.apply_beach()
+	var beach_r: float = (Zones.HOTEL_BOTTOM + Zones.SHALLOW_TOP) * 0.5
+	var round_ok := true
+	for k in 16:
+		var a := float(k) / 16.0 * TAU
+		game.player.position = Zones.CENTER + Vector2(cos(a), sin(a)) * beach_r
+		game.player._clamp_position()
+		if absf(Zones.depth(game.player.position) - beach_r) > 1.0:
+			round_ok = false
+	check("you can walk the whole way round the island", round_ok)
+	var street_ok := true
+	for k in Zones.STREETS:
+		for d in [Zones.PLAZA_R + 10.0, 70.0, Zones.HOTEL_BOTTOM - 10.0]:
+			var q: Vector2 = Zones.CENTER + Zones.street_axis(k) * d
+			game.player.position = q
+			game.player._clamp_position()
+			if game.player.position.distance_to(q) > 1.0:
+				street_ok = false
+	check("every street is open all the way to the plaza", street_ok)
+	game.player.position = Zones.CENTER
+	game.player._clamp_position()
+	check("the skip sits in the open central plaza", game.player.position.distance_to(Zones.CENTER) < 1.0
+		and Zones.BAY_POS.distance_to(Zones.CENTER) < 1.0)
+	# between two streets, inside the village, is somebody's house
+	var house: Vector2 = Zones.CENTER + Vector2(cos(Zones.street_angle(0) + PI / 8.0), sin(Zones.street_angle(0) + PI / 8.0)) * 80.0
+	game.player.position = house
+	game.player._clamp_position()
+	check("but not through the houses", game.player._in_village_open(game.player.position - Zones.CENTER,
+		Zones.depth(game.player.position)) or Zones.depth(game.player.position) >= Zones.HOTEL_BOTTOM + 3.0)
+	check("pushed only to the nearest open ground, not across the village",
+		game.player.position.distance_to(house) < 40.0)
+	game.player.position = Zones.CENTER + Vector2(0, 260.0)
+	game.player._clamp_position()
+	check("and not into the deep without the trawler", Zones.depth(game.player.position) <= Zones.DEEP_TOP)
+	game.player.position = Zones.CENTER + Vector2(0, -(Zones.SHALLOW_TOP + 20.0))
+	check("wading is by distance from the shore", game.player.in_water())
+	game.player.position = Zones.CENTER + Vector2(0, -beach_r)
+	check("and the beach ring is dry", not game.player.in_water())
+
+	# seaweed comes from every side and washes up on the ring
+	var right := 0
+	var left := 0
+	var up := 0
+	var down := 0
+	for i in 200:
+		var q: Vector2 = Zones.random_point(Zones.SHALLOW_TOP + 14.0, Zones.DEEP_TOP - 12.0)
+		if q.x > Zones.CENTER.x + 100.0: right += 1
+		if q.x < Zones.CENTER.x - 100.0: left += 1
+		if q.y < Zones.CENTER.y - 100.0: up += 1
+		if q.y > Zones.CENTER.y + 100.0: down += 1
+	check("seaweed arrives from every side", right > 5 and left > 5 and up > 5 and down > 5)
+	var isle_raft: Seaweed = game.spawner._add_seaweed(Zones.CENTER + Vector2(170.0, 0.0), 1, false, true)
+	await frames(1)
+	for i in 400:
+		if not isle_raft.drifting:
+			break
+		isle_raft._do_drift(0.1)
+	check("drifting seaweed washes up on the island's shore",
+		not isle_raft.drifting and absf(Zones.depth(isle_raft.position) - Zones.SHORE_Y) < 14.0)
+	isle_raft.free()
+
+	# tourists walk out from the compound in their own direction, and back
+	var isle_tr: Tourist = game.spawner.make_tourist(Zones.CENTER + Vector2(Zones.TOURIST_SPAWN_Y, 0.0), 150.0, false)
+	var d0: float = Zones.depth(isle_tr.position)
+	for i in 20:
+		await frames(1)
+	check("tourists walk out of the village along a street", Zones.depth(isle_tr.position) > d0 + 10.0
+		and isle_tr.position.x > Zones.CENTER.x + Zones.TOURIST_SPAWN_Y
+		and absf(isle_tr.position.y - Zones.CENTER.y) < Zones.STREET_HALF_W + 4.0)
+	isle_tr.free()
+
+	# ---- the three events ----------------------------------------------------
+	var h: Holbox = game.holbox
+	check("the events are running here", h.active)
+	check("the whale shark and flamingos use their art", h._whale_tex != null and h._flamingo_tex != null)
+	h._last = "whale"
+	var repeats := false
+	for i in 12:
+		var prev: String = h._last
+		h.event = ""
+		h._next = 0.0
+		h.tick(0.01)
+		if h.event == prev:
+			repeats = true
+		h.event = ""
+	check("the same event never comes twice in a row", not repeats)
+
+	var tourists_before := 0
+	for c in game.world.get_children():
+		if c is Tourist:
+			tourists_before += 1
+	h.start("whale")
+	var tourists_after := 0
+	for c in game.world.get_children():
+		if c is Tourist:
+			tourists_after += 1
+	check("a whale shark sends a crowd into the water", tourists_after == tourists_before + h.whale_crowd)
+	check("and the HUD says so", h.status_text().contains("WHALE"))
+	for c in game.world.get_children():
+		if c is Tourist:
+			c.free()
+
+	var kelp_before: int = game.spawner.count_seaweed(true)
+	h.start("sandbar")
+	h.tick(2.0)
+	check("low tide leaves kelp out at the end of the sandbar",
+		game.spawner.count_seaweed(true) >= kelp_before + h.sandbar_kelp)
+	var bar_dir := Vector2(cos(h.angle), sin(h.angle))
+	var out_there: Vector2 = Zones.CENTER + bar_dir * (Zones.DEEP_TOP + 30.0)
+	check("the sandbar reaches out past the deep line", h.on_sandbar(out_there))
+	game.player.position = out_there
+	game.player._clamp_position()
+	check("you can walk out on it without the trawler",
+		Zones.depth(game.player.position) > Zones.DEEP_TOP + 20.0)
+	check("and it is dry underfoot", not game.player.in_water())
+	h.tick(h._len)
+	game.player._clamp_position()
+	check("when the tide returns you are back within the usual limit",
+		Zones.depth(game.player.position) <= Zones.DEEP_TOP)
+
+	h.start("flamingo")
+	h.tick(2.0)
+	var flock_mid: Vector2 = Zones.CENTER + Vector2(cos(h.angle), sin(h.angle)) * beach_r
+	check("flamingos close off their stretch of beach", h.blocks(flock_mid))
+	game.player.position = flock_mid
+	game.player._clamp_position()
+	check("you are moved to the edge of the flock, along the beach",
+		not h.blocks(game.player.position) and absf(Zones.depth(game.player.position) - beach_r) < 1.5)
+	var mouths_clear := true
+	for k in Zones.STREETS:
+		var mouth: Vector2 = Zones.CENTER + Zones.street_axis(k) * beach_r
+		for off in [-Zones.STREET_HALF_W, 0.0, Zones.STREET_HALF_W]:
+			var n: Vector2 = Vector2(-Zones.street_axis(k).y, Zones.street_axis(k).x)
+			if h.blocks(mouth + n * off):
+				mouths_clear = false
+	check("they never land across a street, so every route in stays open", mouths_clear)
+	var under: Seaweed = game.spawner._add_seaweed(flock_mid, 2, false, false)
+	await frames(1)
+	under._player = game.player
+	under._timer = 99.0
+	under._do_gather(0.1)
+	check("nothing can be gathered from under them", under.units == 2)
+	under.free()
+	h.tick(h._len)
+	check("and once they move on, the beach is open again", not h.blocks(flock_mid))
+
+	game.owned = keep_o6
+	game._reset_player_stats()
+	for up2 in Upgrades.LIST:
+		if game.owned.has(String(up2["id"])):
+			game.apply_upgrade(String(up2["id"]))
+	game._recompute_carry()
+	game.level = 1
+	game.apply_beach()
+	check("back on a banded beach, everything is banded again", not Zones.RADIAL and game._water.visible)
+
+	print("\n[pile merging]")
+	for c in game.world.get_children():
+		if c is Seaweed:
+			c.free()
+	var dying: Seaweed = game.spawner._add_seaweed(Vector2(120, Zones.SHORE_Y - 10.0), 2, false, false)
+	await frames(1)
+	dying.queue_free()
+	check("seaweed never merges into a pile that is being removed",
+		game.find_pile_near(Vector2(124, Zones.SHORE_Y - 10.0), null) == null)
+	await frames(1)
+
+	print("\n[puerto morelos]")
+	paused = false
+	game.level = 1
+	game.apply_beach()
+	check("other beaches have no stream", not game.stream.active)
+	game.level = 7
+	game.apply_beach()
+	var st: Stream = game.stream
+	check("Puerto Morelos has its stream", st.active and st.points.size() > 5)
+	check("which runs from the mangroves down to the sea",
+		st.points[0].y < st.points[st.points.size() - 1].y
+			and absf(st.points[st.points.size() - 1].y - Zones.SHALLOW_TOP) < 6.0)
+	# the current
+	var mid: Dictionary = st.point_at(st._total * 0.65)
+	var in_it: Vector2 = mid["pt"]
+	check("wading the stream slows you", st.slow_at(in_it) < 1.0)
+	var sp_push: Vector2 = st.push_at(in_it, false)
+	check("and carries you downstream", sp_push.dot(mid["dir"]) > st.current * 0.9)
+	check("the tractor is carried half as hard",
+		st.push_at(in_it, true).length() < sp_push.length() * 0.6)
+	var dry: Vector2 = in_it + Vector2(-(mid["dir"] as Vector2).y, (mid["dir"] as Vector2).x) * 30.0
+	check("dry sand either side is unaffected", st.slow_at(dry) == 1.0 and st.push_at(dry, false) == Vector2.ZERO)
+	# no bridge -- playtest found it pointless
+	check("there is no bridge: the stream must be waded", not st.has_bridge())
+	# tourists wading across are carried downstream too
+	var wader: Tourist = Spawner.TOURIST_SCENE.instantiate()
+	wader.game = game
+	game.world.add_child(wader)
+	wader.setup(in_it, Zones.SHALLOW_TOP + 40.0, false, Zones.TOURIST_DESPAWN_Y)
+	await frames(1)
+	wader.position = in_it
+	var before_w: Vector2 = wader.position
+	wader._tick_stream(0.2)
+	var moved_w: Vector2 = wader.position - before_w
+	check("tourists crossing the stream are carried downstream",
+		moved_w.dot(mid["dir"]) > st.current * Tourist.TOURIST_STREAM * 0.2 * 0.9)
+	wader.queue_free()
+	# seaweed floats down to the mouth and piles up. Park the worker in the bay
+	# first -- left standing near the stream they rake units off passing clumps.
+	game.player.position = Zones.BAY_POS
+	for c in game.world.get_children():
+		if c is Seaweed or c is Tourist:
+			c.free()
+	var up_s: Seaweed = game.spawner._add_seaweed(st.point_at(st._total * 0.4)["pt"], 2, false, false)
+	var up_s2: Seaweed = game.spawner._add_seaweed(st.point_at(st._total * 0.55)["pt"], 1, false, false)
+	await frames(1)
+	for i in 200:
+		st.tick(0.1)
+	await frames(1)
+	var mouth_units := 0
+	var sp_mouth: Vector2 = st.points[st.points.size() - 1]
+	for c in game.world.get_children():
+		# 50px: piles merge within 26px of where the mouth pile forms, so the
+		# host can sit ~45px from the mouth point itself.
+		if c is Seaweed and not c.is_queued_for_deletion() and (c as Seaweed).position.distance_to(sp_mouth) < 50.0:
+			mouth_units += (c as Seaweed).units
+	# Asks whether THESE clumps reached the mouth, not for an exact total: the
+	# live game keeps spawning, and a clump landing near the mouth during the
+	# one-frame waits made an exact count flaky.
+	var both_there := true
+	for flowed in [up_s, up_s2]:
+		if is_instance_valid(flowed) and not flowed.is_queued_for_deletion() and flowed.position.distance_to(sp_mouth) >= 50.0:
+			both_there = false
+	check("seaweed in the stream floats down and piles up at its mouth", both_there and mouth_units >= 3)
+	for c in game.world.get_children():
+		if c is Seaweed:
+			c.free()
+	# the flash flood -- re-apply the level first: the mouth test above ran the
+	# stream for 20 simulated seconds, which spent half the flood timer
+	game.apply_beach()
+	check("the flood is not straight away", not st.flooding() and st._next_flood > 20.0)
+	var calm_push: float = st.push_at(in_it, false).length()
+	var calm_w: float = st.width()
+	st.start_flood()
+	check("a flash flood swells the stream", st.width() > calm_w * 1.5)
+	check("and it runs faster", st.push_at(in_it, false).length() > calm_push * 1.8)
+	check("and the HUD says so", st.status_text().contains("FLOOD"))
+	for i in 40:
+		st.tick(0.1)
+	var debris := 0
+	for c in game.world.get_children():
+		if c is Seaweed and not c.is_queued_for_deletion():
+			debris += 1
+	check("it flushes debris down from the mangroves", debris > 0)
+	for i in 120:
+		st.tick(0.1)
+	check("then the stream settles again", not st.flooding() and is_equal_approx(st.width(), calm_w))
+	for c in game.world.get_children():
+		if c is Seaweed:
+			c.free()
+	game.level = 1
+	game.apply_beach()
+
+	print("\n[mahahual]")
+	paused = false
+	game.level = 1
+	game.apply_beach()
+	check("other beaches have no sargassum", not game.mat.active and game.mat.share == 0.0)
+	game.level = 8
+	game.apply_beach()
+	check("Mahahual is in sargassum season", game.mat.active and game.mat.share > 0.0)
+	game.player.position = Zones.BAY_POS
+	for c in game.world.get_children():
+		if c is Seaweed or c is Tourist:
+			c.free()
+	for i in 160:
+		game.spawner.spawn_seaweed(1)
+	var sarg := 0
+	var total := 0
+	for c in game.world.get_children():
+		if c is Seaweed and not (c as Seaweed).kelp:
+			total += 1
+			if (c as Seaweed).sargassum:
+				sarg += 1
+	check("about half of what washes in is sargassum",
+		total > 0 and float(sarg) / float(total) > 0.3 and float(sarg) / float(total) < 0.7)
+	for c in game.world.get_children():
+		if c is Seaweed:
+			c.free()
+	var sg: Seaweed = game.spawner._add_seaweed(Vector2(100, Zones.SHORE_Y - 10.0), 2, false, false)
+	sg.make_sargassum()
+	var plain: Seaweed = game.spawner._add_seaweed(Vector2(250, Zones.SHORE_Y - 10.0), 2, false, false)
+	await frames(1)
+	check("sargassum is drawn gold, not brown", sg._sprite.material is ShaderMaterial)
+	check("it is worth double", sg.value_per_unit() == plain.value_per_unit() * 2)
+	check("and heavy: two slots per unit", sg.weight() == 2 and plain.weight() == 1)
+	# the load: with one slot left, a heavy unit must NOT be taken -- and not lost
+	var keep_cap: int = game.player.capacity
+	game.player.carried = keep_cap - 1
+	sg._player = game.player
+	sg._timer = 99.0
+	sg._do_gather(0.1)
+	check("with one slot left you cannot lift sargassum", sg.units == 2 and game.player.carried == keep_cap - 1)
+	game.player.carried = keep_cap - 2
+	sg._timer = 99.0
+	sg._do_gather(0.1)
+	check("with two you can, and it fills both", sg.units == 1 and game.player.carried == keep_cap)
+	game.player.carried = 0
+	game.player.carried_value = 0
+	sg._player = null
+	check("sargassum only piles up with sargassum",
+		game.find_pile_near(plain.position + Vector2(4, 0), sg) == null)
+	sg.free()
+	plain.free()
+	# the mat
+	check("the mat is not straight away", not game.mat.drifting_in() and game.mat._next > 20.0)
+	check("it drops more each shift", game.mat.piles_for(0) < game.mat.piles_for(1)
+		and game.mat.piles_for(1) < game.mat.piles_for(3))
+	game.level_index = 0
+	game.mat.launch()
+	check("a mat drifts in from far out", game.mat.drifting_in() and game.mat.mat_y > Zones.VIEW_H)
+	check("and the HUD warns of it", game.mat.status_text().contains("MAT"))
+	var ticks := 0
+	while game.mat.drifting_in() and ticks < 600:
+		game.mat.tick(0.1)
+		ticks += 1
+	check("slowly -- with long warning", ticks > 150)
+	var landed := 0
+	var near := true
+	for c in game.world.get_children():
+		if c is Seaweed and not c.is_queued_for_deletion():
+			var q := c as Seaweed
+			if q.sargassum and not q.drifting:
+				landed += 1
+				if absf(q.position.x - clampf(game.mat.mat_x, 0.0, 360.0)) > 200.0:
+					near = false
+	check("it breaks up into sargassum piles on the shore", landed == game.mat.piles_for(0))
+	check("and the HUD says it has come ashore", game.mat.status_text().contains("ASHORE"))
+	for c in game.world.get_children():
+		if c is Seaweed:
+			c.free()
+	game.player.capacity = keep_cap
 	game.level = 1
 	game.apply_beach()
 

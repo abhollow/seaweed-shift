@@ -87,7 +87,10 @@ func reset() -> void:
 
 
 func storms_allowed() -> bool:
-	var needs := String(Beaches.for_level(game.level).get("storms_need", ""))
+	var beach := Beaches.for_level(game.level)
+	if bool(beach.get("no_storms", false)):
+		return false
+	var needs := String(beach.get("storms_need", ""))
 	return needs == "" or game.owned.has(needs)
 
 
@@ -172,7 +175,8 @@ func _tick_happy_hour(delta: float) -> void:
 		return
 
 	_happy_t += delta
-	if _happy_t >= HAPPY_EVERY and not game.storm_active:
+	if _happy_t >= HAPPY_EVERY and not game.storm_active \
+			and not bool(Beaches.for_level(game.level).get("no_happy_hour", false)):
 		_happy_t = 0.0
 		game.happy_hour = true
 		_happy_left = HAPPY_LENGTH

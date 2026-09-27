@@ -316,6 +316,15 @@ func _refresh_status(rep: Reputation, player: Player) -> void:
 		else:
 			_lbl_status.text = "SET ROLLING IN -- COUNT THE WAVES"
 		return
+	if game.mat != null and game.mat.status_text() != "":
+		_lbl_status.text = game.mat.status_text()
+		return
+	if game.stream != null and game.stream.status_text() != "":
+		_lbl_status.text = game.stream.status_text()
+		return
+	if game.holbox != null and game.holbox.status_text() != "":
+		_lbl_status.text = game.holbox.status_text()
+		return
 	if game.night != null and game.night.moonlit():
 		_lbl_status.text = "THE CLOUDS PART -- LOOK AROUND"
 		return

@@ -53,6 +53,24 @@ var _sway := 0.0
 var _anim_t := 0.0
 var _anim_frame := -1
 var _popping := false
+
+# Sargassum (Mahahual): heavy -- each unit takes two slots in the worker's load
+# -- worth double, and rots half again as fast. Drawn gold, not brown, so it
+# never reads as rot.
+var sargassum := false
+const SARGASSUM_SHADER := preload("res://shaders/sargassum.gdshader")
+
+
+func make_sargassum() -> void:
+	sargassum = true
+	if _sprite != null:
+		var mat := ShaderMaterial.new()
+		mat.shader = SARGASSUM_SHADER
+		_sprite.material = mat
+
+
+func weight() -> int:
+	return 2 if sargassum else 1
 var _base_color := Color.WHITE
 var _player: Player = null
 var _size := 18.0
@@ -123,7 +141,7 @@ func value_per_unit() -> int:
 	if game == null:
 		return 1
 	# Explicit type: `game` is untyped, so := has nothing to infer from here.
-	var v: int = game.price_per_unit * (3 if kelp else 1)
+	var v: int = game.price_per_unit * (3 if kelp else 1) * (2 if sargassum else 1)
 	if is_rotten():
 		v = max(1, int(v / 2))
 	return v
@@ -289,7 +307,7 @@ func _process(delta: float) -> void:
 		# Rot speed scales with the shift: later shifts give you less grace before
 		# a pile starts costing reputation at 6x.
 		var rot_rate: float = float(game.rot_scale()) if game != null else 1.0
-		age += delta * _spread_factor() / rot_rate
+		age += delta * _spread_factor() / rot_rate * (1.5 if sargassum else 1.0)
 		if age > ROT_WARN:
 			_apply_rot_tint()
 			if is_rotten() and not was_rotten and game != null:
@@ -305,7 +323,8 @@ func _do_drift(delta: float) -> void:
 	_sway += delta * 0.9
 
 	var wash: float = float(game.wash_speed()) if game != null else 1.0
-	position.y -= drift_speed * mult * wash * delta
+	# Toward the shore -- straight up the screen, or in toward a round island.
+	position -= Zones.outward(position) * (drift_speed * mult * wash * delta)
 	position.x += sin(_sway) * 5.0 * delta
 	# The wind slides floating rafts along the coast. They WRAP at the edges
 	# rather than stacking against the downwind wall -- clamped, everything
@@ -316,13 +335,13 @@ func _do_drift(delta: float) -> void:
 			position.x -= 332.0
 	position.x = clampf(position.x, 14.0, 346.0)
 
-	if position.y <= shore_y:
+	if Zones.depth(position) <= shore_y:
 		_settle()
 
 
 func _settle() -> void:
 	drifting = false
-	position.y = shore_y + randf_range(-10.0, 12.0)
+	position = Zones.at_depth(position, shore_y + randf_range(-10.0, 12.0))
 
 	# Merge into a neighbouring beached pile if there is one. This is what
 	# grows the shoreline into clumps too big to clear in a single pass.
@@ -339,7 +358,13 @@ func _settle() -> void:
 func _do_gather(delta: float) -> void:
 	if _player == null:
 		return
-	if _player.is_full():
+	# Nothing can be gathered from under a flock of flamingos (Holbox).
+	if game != null and game.holbox != null and game.holbox.blocks(position):
+		return
+	# Room for THIS unit, not merely "not full": a heavy sargassum unit needs
+	# two slots, and the unit is taken off the pile before it is handed over --
+	# so checking only is_full() would lose it whenever one slot was left.
+	if not _player.can_carry(weight()):
 		return
 
 	_timer += delta
@@ -348,7 +373,7 @@ func _do_gather(delta: float) -> void:
 
 	_timer = 0.0
 	units -= 1
-	_player.add_seaweed(1, value_per_unit())
+	_player.add_seaweed(1, value_per_unit(), weight())
 
 	if game != null:
 		# Pitch climbs as the pile empties, so working a big clump builds. The

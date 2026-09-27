@@ -104,6 +104,9 @@ var vip: VipZone
 var vip_weight := 1.0
 var night: Night
 var surf: Surf
+var holbox: Holbox
+var stream: Stream
+var mat: SargassumMat
 var rep: Reputation
 var hud: Hud
 var shop: Shop
@@ -162,6 +165,9 @@ func _process(delta: float) -> void:
 	ferry.tick(delta)
 	night.tick(delta)
 	surf.tick(delta)
+	holbox.tick(delta)
+	stream.tick(delta)
+	mat.tick(delta)
 	if _sway_mat != null:
 		var g: float = wind.gust_shape()
 		_sway_phase = sway_step(_sway_phase, delta, g)
@@ -466,6 +472,22 @@ func _build_systems() -> void:
 	surf.z_index = -1
 	world.add_child(surf)
 
+	holbox = Holbox.new()
+	holbox.game = self
+	world.add_child(holbox)
+
+	# The stream's flow flecks and bridge sit on the sand, under the sprites.
+	stream = Stream.new()
+	stream.game = self
+	stream.z_index = -2
+	world.add_child(stream)
+
+	# The sargassum mat floats on the water, under the sprites.
+	mat = SargassumMat.new()
+	mat.game = self
+	mat.z_index = -2
+	world.add_child(mat)
+
 
 # =============================================================================
 # Shift lifecycle
@@ -514,6 +536,13 @@ func seaweed_cap() -> int:
 	# shifts filled it and every further increase in spawn rate did nothing --
 	# which is why shifts 2 to 4 felt no harder than shift 1.
 	return int(Spawner.SEAWEED_MAX + CAP_PER_DIFFICULTY * (shift_difficulty() - 1.0))
+
+
+func spawn_scale() -> float:
+	# A level can arrive with less seaweed, across all its shifts. Holbox uses
+	# it: collecting from all 360 degrees of an island is more walking than
+	# working one straight beach, even with the skip in the middle.
+	return maxf(0.1, float(Beaches.for_level(level).get("spawn_scale", 1.0)))
 
 
 func storm_mult() -> float:
@@ -789,6 +818,9 @@ func _bay_on_left() -> bool:
 
 
 func _bin_offset() -> float:
+	var over = Beaches.for_level(level).get("bin_offset", null)
+	if over != null:
+		return float(over)
 	return -26.0 if _bay_on_left() else 26.0
 
 
@@ -826,6 +858,12 @@ func apply_beach() -> void:
 		night.configure(beach)
 	if surf != null:
 		surf.configure(beach)
+	if holbox != null:
+		holbox.configure(beach)
+	if stream != null:
+		stream.configure(beach)
+	if mat != null:
+		mat.configure(beach)
 	# The VIP frontage runs from the club down to the waterline, so its height
 	# comes from this beach's zones rather than being fixed.
 	var v: Dictionary = beach.get("vip", {})
@@ -853,6 +891,8 @@ func apply_beach() -> void:
 			_bg_sprite.scale = Vector2(Zones.VIEW_W / t.x, Zones.VIEW_H / t.y)
 
 	var pattern := String(beach.get("water", ""))
+	if _water != null:
+		_water.visible = pattern != ""
 	if pattern != "":
 		var frames: Array[Texture2D] = []
 		for i in 8:
@@ -870,11 +910,22 @@ func apply_beach() -> void:
 					(Zones.VIEW_H - Zones.WATER_TOP) / ft.y)
 
 	if _buoys != null:
-		for b in _buoys.get_children():
-			if b is Sprite2D:
-				(b as Sprite2D).position.y = Zones.DEEP_TOP
+		var kids := _buoys.get_children()
+		for i in kids.size():
+			var b: CanvasItem = kids[i]
+			if not b.has_meta("home_x"):
+				b.set_meta("home_x", b.position.x)
+			b.visible = true
+			if Zones.RADIAL:
+				# A ring of buoys round the island, at the deep line.
+				var a := float(i) / float(kids.size()) * TAU
+				var at := Zones.CENTER + Vector2(cos(a), sin(a)) * Zones.DEEP_TOP
+				b.position = at - (Vector2(4, 4) if b is ColorRect else Vector2.ZERO)
+				b.visible = at.x > 4.0 and at.x < Zones.VIEW_W - 4.0 and at.y > 4.0 and at.y < Zones.VIEW_H - 4.0
+			elif b is Sprite2D:
+				b.position = Vector2(float(b.get_meta("home_x")), Zones.DEEP_TOP)
 			elif b is ColorRect:
-				(b as ColorRect).position.y = Zones.DEEP_TOP - 4.0
+				b.position = Vector2(float(b.get_meta("home_x")), Zones.DEEP_TOP - 4.0)
 
 	# The bay can move between levels -- Playa del Carmen puts it on the left.
 	if _bay != null:
@@ -889,7 +940,7 @@ func apply_beach() -> void:
 		player.shallow_y = Zones.SHALLOW_TOP
 		player.deep_y = Zones.DEEP_TOP
 		player.min_y = Zones.HOTEL_BOTTOM + 10.0
-		player.max_y = (Zones.VIEW_H - 14.0) if player.can_enter_deep \
+		player.max_y = (Zones.DEPTH_MAX - 14.0) if player.can_enter_deep \
 			else (Zones.DEEP_TOP - 12.0)
 
 
@@ -1016,7 +1067,7 @@ func apply_upgrade(id: String) -> void:
 			player.speed_mult = 1.4
 		"trawler":
 			player.can_enter_deep = true
-			player.max_y = Zones.VIEW_H - 14.0
+			player.max_y = Zones.DEPTH_MAX - 14.0
 			if _buoys != null:
 				_buoys.modulate = Color(1, 1, 1, 0.25)
 
