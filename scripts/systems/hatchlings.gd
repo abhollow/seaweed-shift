@@ -29,6 +29,13 @@ var _result_t := 0.0
 var _result := ""
 var _anim := 0.0
 
+# Art, if present: two crawl frames, head pointing DOWN (toward the sea), drawn
+# at 2x. Each hatchling alternates between them on its own offset, so the line
+# doesn't paddle in unison. Falls back to the code drawing otherwise.
+const FRAME_PATHS := ["res://assets/sprites/hatchling_f0.png", "res://assets/sprites/hatchling_f1.png"]
+const CRAWL_FPS := 6.0
+var _frames: Array = []
+
 
 func configure(beach: Dictionary) -> void:
 	var h: Dictionary = beach.get("hatch", {})
@@ -43,6 +50,10 @@ func configure(beach: Dictionary) -> void:
 	_t = -1.0
 	_result_t = 0.0
 	_next = first
+	_frames.clear()
+	for path in FRAME_PATHS:
+		if ResourceLoader.exists(path):
+			_frames.append(load(path))
 
 
 func hatching() -> bool:
@@ -147,6 +158,12 @@ func _draw() -> void:
 		if h["done"]:
 			continue
 		var p: Vector2 = h["pos"]
+		if not _frames.is_empty():
+			var fi := int(_anim * CRAWL_FPS + float(h["wig"]) * 3.0) % _frames.size()
+			var tex: Texture2D = _frames[fi]
+			var sz := tex.get_size() * 2.0
+			draw_texture_rect(tex, Rect2(p - sz * 0.5, sz), false)
+			continue
 		var flap := sin(_anim * 12.0 + float(h["wig"])) * 1.5
 		var shell := Color(0.25, 0.22, 0.14)
 		var skin := Color(0.38, 0.33, 0.22)

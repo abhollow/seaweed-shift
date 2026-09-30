@@ -22,6 +22,10 @@ func build() -> void:
 	for side in ["left", "right", "top", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, 10)
 	add_child(margin)
+	# Pin the contents to the panel. Without this the margin sized itself to its
+	# widest child, and one long unwrapped description pushed the whole shop
+	# past the right edge of the screen.
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 	var outer := VBoxContainer.new()
 	outer.add_theme_constant_override("separation", 6)
@@ -79,6 +83,11 @@ func rebuild() -> void:
 
 		var b := UiTheme.button(Button.new())
 		b.custom_minimum_size = Vector2(0, 38)
+		# Long names ("Deep-Water Trawler  --  shift 3") trim with an ellipsis
+		# rather than widening the whole panel.
+		b.clip_text = true
+		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 		var is_owned: bool = game.owned.has(up["id"])
 		var needs: String = up["needs"]
@@ -110,6 +119,11 @@ func rebuild() -> void:
 			desc.text = String(up["desc"])
 		desc.add_theme_font_size_override("font_size", 12)
 		desc.add_theme_color_override("font_color", UiTheme.TEXT_DIM)
+		# Wrap to the panel. An unwrapped label is as wide as its whole
+		# sentence, and that was what made the shop wider than the screen.
+		desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		desc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		desc.custom_minimum_size = Vector2(1, 0)
 		_list.add_child(desc)
 
 

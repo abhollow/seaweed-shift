@@ -40,6 +40,19 @@ nesting beaches. Clear the way and they carry on.
 It gives the player a positive goal for once -- not just "keep the beach clean",
 but "clear the way HERE, now".
 
+## Hatchling art
+
+Two crawl frames (`assets/sprites/hatchling_f0.png`, `_f1.png`, 9x12, drawn at
+2x), head pointing down toward the sea: front flippers reaching forward, then
+swept back. Each hatchling alternates at 6 fps on its own offset, so the line
+doesn't paddle in unison. About a third of a tourist's height -- generous for
+real hatchlings, but they have to be spotted on a phone mid-shift.
+
+The forward flippers make the first frame taller than the second, so the usual
+slicer -- which crops and scales each sprite on its own -- would have drawn the
+shells at different sizes and set the crawl jittering. Both frames are cut with
+one shared box, anchored on the shell's tip, and scaled by the same amount.
+
 ## A bug the tests caught
 
 The event ended when no hatchlings were *moving*, and a hatchling waiting
@@ -56,7 +69,6 @@ Level 9's `nests` and `hatch` blocks in `scripts/beaches.gd`, plus
 ## Not built
 
 - **Music.** None of its own yet.
-- **Hatchling art.** Drawn in code.
 
 ## Playtest -- what to feel for
 

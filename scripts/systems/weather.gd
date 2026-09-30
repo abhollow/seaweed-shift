@@ -84,6 +84,12 @@ func reset() -> void:
 	if game.audio != null:
 		game.audio.stop_event(0.4)
 		game.audio.stop_ambience(0.4)
+		# Bring the music back up. Clearing a storm, Happy Hour or the upgrade
+		# jingle here used to set bed = NONE without restoring the level, so
+		# any shift that began mid-duck -- most often straight after buying
+		# upgrades, which plays the jingle -- ran its whole length 10 dB quiet,
+		# until some later event happened to end and restore it.
+		game.audio.restore_music(0.4)
 
 
 func force_storm(on: bool) -> void:

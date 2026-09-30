@@ -29,6 +29,12 @@ var _ashore_t := 0.0
 var _seed := 0.0
 var _anim := 0.0
 
+# Art, if present: the raft seen from above, drawn at the mat's width with its
+# own proportions, rocking gently, over a code-drawn foam fringe so it sits IN
+# the water rather than on top of it. Falls back to the code drawing otherwise.
+const ART_PATH := "res://assets/sprites/sargassum_mat.png"
+var _tex: Texture2D
+
 
 func configure(beach: Dictionary) -> void:
 	var m: Dictionary = beach.get("sargassum", {})
@@ -43,6 +49,7 @@ func configure(beach: Dictionary) -> void:
 	mat_x = -1.0
 	_ashore_t = 0.0
 	_next = mat_first
+	_tex = load(ART_PATH) if ResourceLoader.exists(ART_PATH) else null
 
 
 func piles_for(shift_index: int) -> int:
@@ -127,6 +134,14 @@ func _draw() -> void:
 		rim.append(c + r * 1.08)
 		body.append(c + r)
 	draw_colored_polygon(rim, Color(1, 1, 1, 0.45))
+	if _tex != null:
+		var ts := _tex.get_size()
+		var sz := Vector2(mat_width, mat_width * ts.y / ts.x)
+		var rock := sin(_anim * 1.3) * 0.03
+		draw_set_transform(c + Vector2(0, sin(_anim * 1.7) * 1.5), rock, Vector2.ONE)
+		draw_texture_rect(_tex, Rect2(-sz * 0.5, sz), false)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		return
 	draw_colored_polygon(body, Color(0.55, 0.36, 0.12, 0.92))
 	for i in 46:
 		var a := fposmod(float(i) * 2.399, TAU)

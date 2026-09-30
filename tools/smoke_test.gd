@@ -1804,6 +1804,7 @@ func _run() -> void:
 	game.level = 8
 	game.apply_beach()
 	check("Mahahual is in sargassum season", game.mat.active and game.mat.share > 0.0)
+	check("the drifting mat uses its art", game.mat._tex != null)
 	game.player.position = Zones.BAY_POS
 	for c in game.world.get_children():
 		if c is Seaweed or c is Tourist:
@@ -1904,6 +1905,7 @@ func _run() -> void:
 	game.level = 9
 	game.apply_beach()
 	check("Akumal has its turtle nests", game.nests.size() == 4 and game.hatch.active)
+	check("the hatchlings use their two-frame crawl art", game.hatch._frames.size() == 2)
 	game.player.position = Zones.BAY_POS
 	for c in game.world.get_children():
 		if c is Seaweed or c is Tourist:
@@ -2044,6 +2046,62 @@ func _run() -> void:
 	game.apply_beach()
 	game.begin_level()
 	await frames(1)
+
+	print("\n[every level's soundtrack]")
+	for lvm in range(1, 11):
+		var want = Beaches.for_level(lvm).get("music", null)
+		if want == null:
+			continue
+		game.level = lvm
+		game.level_index = 0
+		game.apply_beach()
+		game.begin_level()
+		await frames(2)
+		var got: Array = game.audio._playlist
+		var names := []
+		for x in got:
+			names.append(String(x).get_file())
+		print("    L%d plays %s" % [lvm, names])
+		check("level %d plays its own soundtrack" % lvm, got.size() == (want as Array).size()
+			and String(got[0]).get_file() in (want as Array).map(func(q): return String(q).get_file()))
+	game.level = 1
+	game.apply_beach()
+	game.begin_level()
+	await frames(1)
+
+	print("\n[music level across shifts]")
+	var mbus := AudioServer.get_bus_index("MusicTrack")
+	game.weather.set_bed(Weather.Bed.UPGRADE)
+	for i in 60:
+		await process_frame
+	check("the upgrade jingle ducks the music", AudioServer.get_bus_volume_db(mbus) < -8.0)
+	game.begin_level()
+	for i in 60:
+		await process_frame
+	check("a new shift brings the music back up, even mid-duck",
+		AudioServer.get_bus_volume_db(mbus) > -1.0)
+
+	print("\n[shop fits the screen]")
+	var keep_cr: int = game.credits
+	var keep_lix: int = game.level_index
+	game.level_index = 0          # early shift: later upgrades show their longest text
+	game.credits = 9999999        # the widest possible title
+	game.shop.rebuild()
+	game.shop.visible = true
+	await frames(3)
+	var widest := 0.0
+	var stack := [game.shop]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		if n is Control and (n as Control).is_visible_in_tree():
+			widest = maxf(widest, (n as Control).get_global_rect().end.x)
+		stack.append_array(n.get_children())
+	check("the shop fits inside the screen, with nothing cut off on the right",
+		widest <= Zones.VIEW_W + 0.5)
+	print("    widest point of the shop: %.0f of %d" % [widest, Zones.VIEW_W])
+	game.shop.visible = false
+	game.credits = keep_cr
+	game.level_index = keep_lix
 
 	print("\n[adaptive difficulty]")
 	var keep_adapt: float = game.adapt

@@ -170,3 +170,24 @@ notch height anyway, pushing MENU and SHOP (and the bottom strip) inward for
 nothing. `Hud.inset_in_game()` now counts only the part of an inset that
 reaches past the letterbox bar -- zero on most modern phones -- and the buttons
 sit 4px from the top.
+
+
+## Fixes worth remembering
+
+**Music stayed ducked across a shift change.** Storms, Happy Hour and the
+upgrade jingle duck the music by 10 dB and restore it when they end. Starting a
+new shift cleared them without restoring the level, so a shift that began
+mid-duck -- most often straight after buying upgrades, which plays the jingle --
+ran its whole length quiet. It showed up on Mahahual, but could hit any level.
+`Weather.reset()` now restores the music; a test ducks it, starts a shift, and
+checks the level is back.
+
+**The shop ran off the right of the screen.** Upgrade descriptions didn't wrap,
+so one long sentence made its label -- and with it the list, the scroll area and
+the panel -- as wide as the whole line: 448px on a 360px screen. Descriptions now
+wrap, long button text trims with an ellipsis, and the contents are pinned to the
+panel. A test opens the shop in its wordiest state and checks nothing reaches
+past the screen edge (now 352px).
+
+Both tests were checked to FAIL with their fix removed -- a test that cannot fail
+guards nothing.

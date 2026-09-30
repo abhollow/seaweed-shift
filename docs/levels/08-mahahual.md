@@ -51,6 +51,18 @@ the same shader; raked down below 6 units it turns back into an ordinary pile.
 Units per mat scale with the shift, like the ferry and the big wave: **8 / 12 /
 16 / 20** -- one heap on shift 1, up to two heaps and a pile by shift 4.
 
+## Mat art
+
+`assets/sprites/sargassum_mat.png` (55x25): a wide, ragged raft of amber weed
+seen from above, drawn at the mat's 110px width -- exactly the game's 2x pixel
+scale -- rocking gently on the swell, over a code-drawn foam fringe so it sits in
+the water rather than on it. The amber matches the heaps it breaks into.
+
+Three leftover magenta pixels from the background were removed after slicing.
+The rule (blue well above green) cannot touch amber weed -- but it would catch
+genuinely pink art like the flamingos, so it is applied per sprite, not across
+the whole sprite folder.
+
 ## Tuning knobs
 
 Level 8's `sargassum` block in `scripts/beaches.gd`: `share`, `mat_first`,
@@ -58,7 +70,6 @@ Level 8's `sargassum` block in `scripts/beaches.gd`: `share`, `mat_first`,
 
 ## Not built
 
-- **Mat art.** The drifting mat is drawn in code.
 
 **Music:** Tense Beach Game 1 and 2.
 
