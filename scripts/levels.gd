@@ -23,7 +23,6 @@ const LIST := [
 		"name": "SHIFT 1  --  Low Season",
 		"credits": 1500,
 		"rep": 70.0,
-		"hold": 90.0,
 		"difficulty": 1.0,
 		"rot_scale": 1.0,
 		# Storm spawn interval multiplier and units per spawn. On foot with no
@@ -44,7 +43,6 @@ const LIST := [
 		"name": "SHIFT 2  --  Shoulder Season",
 		"credits": 4000,
 		"rep": 75.0,
-		"hold": 120.0,
 		# Tier-2 gear roughly doubles throughput, so the beach has to fill
 		# faster or the shift plays exactly like shift 1 with bigger numbers.
 		"difficulty": 1.8,
@@ -64,7 +62,6 @@ const LIST := [
 		"name": "SHIFT 3  --  High Season",
 		"credits": 11000,
 		"rep": 80.0,
-		"hold": 150.0,
 		"difficulty": 2.6,
 		"rot_scale": 0.62,
 		"storm_mult": 0.35,
@@ -86,7 +83,6 @@ const LIST := [
 		"name": "SHIFT 4  --  Peak Season",
 		"credits": 14000,
 		"rep": 80.0,
-		"hold": 150.0,
 		"difficulty": 3.3,
 		"rot_scale": 0.58,
 		"storm_mult": 0.33,

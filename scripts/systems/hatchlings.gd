@@ -127,7 +127,7 @@ func tick(delta: float) -> void:
 			h["done"] = true
 			_saved += 1
 			if game != null:
-				game.add_credits(game.price_per_unit * reward_units)
+				game.add_credits(int(round(game.price_per_unit * reward_units)))
 				game.popup("SAFE!", p + Vector2(0, -8), Color(0.55, 0.95, 0.85))
 			remaining -= 1
 	if remaining == 0 or _t >= limit:

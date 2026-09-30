@@ -36,6 +36,7 @@ var speed_mult := 1.0
 var capacity := 5
 var gather_interval := 0.7   # seconds per unit of seaweed
 var has_rain_jacket := false
+const STORM_SLOW := 0.40      # speed in a storm without the Rain Jacket
 var has_waders := false
 var has_sand_tires := false
 var on_vehicle := false
@@ -47,7 +48,7 @@ var in_safe_zone := false
 # Carried load is tracked two ways: count (against capacity) and credit value
 # (deep kelp is worth 3x per slot, which is what makes deep water worth it).
 var carried := 0
-var carried_value := 0
+var carried_value := 0.0     # fractional pay adds up here; rounded at the skip
 
 # Zone boundaries, handed over by Game so the player knows where water starts.
 var shallow_y := 400.0
@@ -270,8 +271,9 @@ func current_speed() -> float:
 
 	# The storm is the rain jacket's whole reason to exist: without it you
 	# slow to a crawl exactly when there is the most seaweed to collect.
+	# (0.55 at first, which barely registered -- the jacket felt optional.)
 	if game != null and game.storm_active and not has_rain_jacket:
-		s *= 0.55
+		s *= STORM_SLOW
 
 	# Water drags, hard. Wading the shallows bare-legged costs you 70% of your
 	# speed -- enough that reaching the seaweed out there is not worth it until
@@ -300,7 +302,7 @@ func can_carry(weight: int = 1) -> bool:
 	return capacity - carried >= weight
 
 
-func add_seaweed(n: int, value: int, weight: int = 1) -> void:
+func add_seaweed(n: int, value: float, weight: int = 1) -> void:
 	# weight: slots each unit takes. Sargassum is heavy -- two per unit.
 	var room: int = capacity - carried
 	var taken: int = min(n, room / maxi(weight, 1))
@@ -311,9 +313,9 @@ func add_seaweed(n: int, value: int, weight: int = 1) -> void:
 
 
 func dump() -> int:
-	var v := carried_value
+	var v := int(round(carried_value))
 	carried = 0
-	carried_value = 0
+	carried_value = 0.0
 	return v
 
 
@@ -328,9 +330,9 @@ func get_hit() -> void:
 	# deep kelp is gone in one collision, which is what keeps the late game from
 	# turning into a victory lap.
 	var lost_units := carried
-	var lost_value := carried_value
+	var lost_value := int(round(carried_value))
 	carried = 0
-	carried_value = 0
+	carried_value = 0.0
 
 	if game != null:
 		game.on_player_hit(lost_units, lost_value, global_position)

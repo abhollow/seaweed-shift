@@ -771,16 +771,18 @@ func _run() -> void:
 	check("state restored for the remaining checks", game.owned.size() == 9)
 
 	print("\n[level completion]")
-	# Clear the beach first: _tick_reputation runs before _check_level_complete
-	# and zeroes rep_held whenever reputation is under target, so a dirty beach
-	# would wipe the hold timer before the completion check ever sees it.
-	for c in game.world.get_children():
-		if c is Seaweed:
-			c.free()
-	game.rep.value = 100.0
-	game.credits_earned = 999999
-	game.rep.held = 9999.0
-	await frames(5)
+	check("each shift has one goal: its credit target", not game.current_level().has("hold")
+		and not ("_goal_hold" in game.hud))
+	# Credits alone end the shift -- even with reputation low and no clean
+	# spell behind it, which used to block completion invisibly.
+	game.rep.value = 40.0
+	game.rep.held = 0.0
+	game.credits_earned = int(game.current_level()["credits"]) - 1
+	await frames(3)
+	check("one credit short, the shift carries on", not game.level_done)
+	game.credits_earned = int(game.current_level()["credits"])
+	await frames(3)
+	check("reaching the credit target ends the shift, whatever the reputation", game.level_done)
 	check("shift completed", game.level_done)
 	# The world gets the moment first -- shake and a banner -- and the panel
 	# arrives a beat later, so it must NOT be up immediately.
@@ -1979,7 +1981,7 @@ func _run() -> void:
 		if not h9.hatching():
 			break
 	check("with a clear path every hatchling reaches the sea", h9._saved == h9.count)
-	check("and each one pays out", game.credits_earned - cr0 == h9.count * game.price_per_unit * h9.reward_units)
+	check("and each one pays out", game.credits_earned - cr0 == h9.count * int(round(game.price_per_unit * h9.reward_units)))
 	check("the HUD celebrates", h9.status_text().contains("ALL"))
 	# a pile in the way stops them -- until it is cleared
 	var n1: Rect2 = game.nests[1]
@@ -2181,6 +2183,24 @@ func _run() -> void:
 	game.menu_music = mm2
 	game._adopt_menu_music(false)
 	check("without a tutorial it fades straight away", game.menu_music == null)
+
+	print("\n[storms matter]")
+	var keep_storm2: bool = game.storm_active
+	var keep_jacket: bool = game.player.has_rain_jacket
+	game.player.position = Vector2(180, Zones.HOTEL_BOTTOM + 60.0)
+	game.storm_active = false
+	game.player.has_rain_jacket = false
+	var dry_speed: float = game.player.current_speed()
+	game.storm_active = true
+	check("a storm slows you to a crawl without the jacket",
+		is_equal_approx(game.player.current_speed(), dry_speed * Player.STORM_SLOW) and Player.STORM_SLOW <= 0.45)
+	game.player.has_rain_jacket = true
+	check("the Rain Jacket keeps you at full speed", is_equal_approx(game.player.current_speed(), dry_speed))
+	check("tourists trudge in a storm", Tourist.STORM_SPEED <= 0.4)
+	check("storms come often and last long enough to matter",
+		Weather.STORM_EVERY <= 80.0 and Weather.STORM_LENGTH >= 20.0)
+	game.storm_active = keep_storm2
+	game.player.has_rain_jacket = keep_jacket
 
 	print("\n[adaptive difficulty]")
 	var keep_adapt: float = game.adapt

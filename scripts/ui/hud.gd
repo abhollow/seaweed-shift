@@ -26,7 +26,7 @@ var _lbl_status: Label
 var _strip: ColorRect
 var _goal_bg: ColorRect
 var _goal_fill: ColorRect
-var _goal_hold: ColorRect
+
 var _rep_bg: ColorRect
 var _rep_fill: ColorRect
 var _pause_panel: PanelContainer
@@ -105,12 +105,6 @@ func _build_strip() -> void:
 	_goal_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_goal_fill)
 
-	_goal_hold = ColorRect.new()
-	_goal_hold.position = Vector2(150, top + 22)
-	_goal_hold.size = Vector2(0, 4)
-	_goal_hold.color = Color(0.35, 0.85, 0.45, 0.85)
-	_goal_hold.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_goal_hold)
 
 	_rep_bg = ColorRect.new()
 	_rep_bg.position = Vector2(8, top + 29)
@@ -184,7 +178,6 @@ func apply_safe_area() -> void:
 	_lbl_rep.position.y = top + 6
 	_goal_bg.position.y = top + 22
 	_goal_fill.position.y = top + 22
-	_goal_hold.position.y = top + 22
 	_rep_bg.position.y = top + 29
 	_rep_fill.position.y = top + 30
 	_lbl_status.position.y = top - 22
@@ -268,24 +261,19 @@ func refresh() -> void:
 		_lbl_shift.text = "FREE PLAY"
 		_goal_bg.visible = false
 		_goal_fill.visible = false
-		_goal_hold.visible = false
 	else:
 		var lv: Dictionary = game.current_level()
 		var need: int = int(lv["credits"])
 		var earned: int = game.credits_earned
-		var hold_need: float = float(lv["hold"])
 
 		_lbl_shift.text = "L%d  S%d/%d  %d/%d cr" % [
 			game.level, game.level_index + 1, Levels.LIST.size(), earned, need,
 		]
 		_goal_bg.visible = true
 		_goal_fill.visible = true
-		_goal_hold.visible = true
+		# One bar, one goal: credits earned this shift. A full bar means the
+		# shift is over.
 		_goal_fill.size.x = 138.0 * clampf(float(earned) / maxf(1.0, float(need)), 0.0, 1.0)
-		# The green overlay is the reputation-hold half of the goal, drawn on the
-		# same bar so a full bar genuinely means "shift about to end".
-		_goal_hold.size.x = 138.0 * clampf(game.rep.held / maxf(1.0, hold_need), 0.0, 1.0)
-		_goal_hold.position.x = 150.0
 
 	_refresh_meter(rep)
 	_refresh_status(rep, player)

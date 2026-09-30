@@ -244,3 +244,38 @@ no tutorial, the menu track fades out under the level's music as before.
 
 **Once per new game.** `tutorial_done` is saved, so continuing a game never
 replays it; a new game starts fresh and plays it again (SKIP is right there).
+
+
+## Pay split to 4.5, storms made to matter
+
+**Pay 4.5 per unit (9 with the Sorter).** Doubling to 6 got shifts to ~5 minutes
+but the on-foot upgrades came too easily; 4.5 splits the difference -- a little
+more work for the reward. Pay is carried as a float and rounded only when paid
+out at the skip, so no half-credits ever show.
+
+**Storms: every 75s (was 120), lasting 22s (was 14).** The worker drops to 40%
+speed without the Rain Jacket (was 55%), tourists to 35% (was 55%). Before, a
+player was slowed only ~12% of the time and barely noticed -- the jacket felt
+optional. Now roughly a third of each shift is storm, and slow, lingering
+tourists make storms crowded as well as slow. Tests pin these values.
+
+
+## One goal per shift: credits earned
+
+A shift ends the moment its credit target is reached, counting credits EARNED
+this shift -- spending on upgrades never sets it back, and skipping upgrades is
+no shortcut, since without them you earn more slowly. Upgrades are never
+required.
+
+It used to need a second condition as well: reputation held above a target
+**continuously** for 90-150 seconds, drawn as a green bar laid over the yellow
+credit bar. One dip reset it to zero, so a shift could sail past its credit
+target and simply not end -- a playtest hit exactly that and read it as broken.
+Removed, with the green bar and the per-shift `hold` times.
+
+Reputation still carries the tension, more visibly: hit zero and the firing
+countdown starts; a clean beach earns up to 30% more as the resort bonus. And
+earning credits means raking seaweed, which cleans the beach anyway, so there is
+no way to grind the target while the beach rots. As playtest put it: being on
+the edge of getting fired is tenser, and more obvious, than a hold timer
+resetting in its last few seconds.

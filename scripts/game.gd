@@ -58,15 +58,15 @@ const MUSIC_DB := -8.0
 # --- shared state -----------------------------------------------------------
 var credits := 0
 # Pay per unit of seaweed. A shift ends when its credit target is earned, so pay
-# sets how LONG a shift runs. At 3 (6 with the Sorter) shifts ran about ten
-# minutes -- double the ~5 minute session that mobile players settle into, and
-# long once the campaign had ten levels of four shifts. Doubling pay halves the
-# units a shift needs while earning exactly the same credits per shift, so
-# upgrade prices, shop pacing and the resort bonus all stay in balance. (Lowering
-# the targets instead would have halved income and doubled the shifts needed to
-# afford each upgrade.)
-const BASE_PAY := 6
-const SORTER_PAY := 12
+# sets how LONG a shift runs -- without changing the credits a shift earns, so
+# upgrade prices, shop pacing and the resort bonus stay in balance.
+#   3 (6 with the Sorter): shifts ran ~10 minutes -- too long for mobile.
+#   6 (12):  ~5 minutes, but the on-foot upgrades came too easily.
+#   4.5 (9): split the difference -- a little more work for the reward.
+# Fractional pay is carried as a float and rounded only when it is paid out at
+# the skip, so no half-credits ever show.
+const BASE_PAY := 4.5
+const SORTER_PAY := 9.0
 var price_per_unit := BASE_PAY
 var storm_active := false
 var happy_hour := false
@@ -851,10 +851,18 @@ func _reset_player_stats() -> void:
 func _check_level_complete() -> void:
 	if level_done or free_play:
 		return
+	# ONE goal: the shift's credit target, counting credits EARNED this shift --
+	# spending on upgrades never sets it back, and skipping upgrades is no
+	# shortcut, since without them you simply earn more slowly.
+	#
+	# There used to be a second condition: reputation held above a target
+	# continuously for 90-150s, drawn as a green bar over the yellow one. A
+	# single dip reset it to zero, so a shift could sail past its credit target
+	# and not end, for reasons the player couldn't see. Reputation still
+	# matters -- hit zero and you're fired, and a clean beach earns a bigger
+	# resort bonus -- and the firing countdown is visible, tense and fair.
 	var lv := current_level()
 	if credits_earned < int(lv["credits"]):
-		return
-	if rep.held < float(lv["hold"]):
 		return
 	finish_level()
 

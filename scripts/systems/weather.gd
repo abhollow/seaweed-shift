@@ -9,9 +9,12 @@ extends Node
 # them; this node owns the scheduling and all the audio consequences.
 
 # --- tuning -----------------------------------------------------------------
-const STORM_EVERY := 120.0
+# Storms: more often and longer than the first tuning (120s / 14s), which left
+# the player slowed only ~12% of the time -- too little for the Rain Jacket to
+# matter. Now roughly a third of every shift is storm.
+const STORM_EVERY := 75.0
 const STORM_GRACE := 25.0
-const STORM_LENGTH := 14.0
+const STORM_LENGTH := 22.0
 const HAPPY_EVERY := 300.0
 const HAPPY_LENGTH := 30.0
 

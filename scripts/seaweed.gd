@@ -162,13 +162,14 @@ func rot_progress() -> float:
 	return clampf((age - ROT_WARN) / (ROT_TIME - ROT_WARN), 0.0, 1.0)
 
 
-func value_per_unit() -> int:
+func value_per_unit() -> float:
+	# Fractional (pay can be 4.5); rounded only when paid out at the skip.
 	if game == null:
-		return 1
+		return 1.0
 	# Explicit type: `game` is untyped, so := has nothing to infer from here.
-	var v: int = game.price_per_unit * (3 if kelp else 1) * (2 if sargassum else 1)
+	var v: float = float(game.price_per_unit) * (3.0 if kelp else 1.0) * (2.0 if sargassum else 1.0)
 	if is_rotten():
-		v = max(1, int(v / 2))
+		v = maxf(1.0, v / 2.0)
 	return v
 
 

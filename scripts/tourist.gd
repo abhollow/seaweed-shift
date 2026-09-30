@@ -40,7 +40,9 @@ const WADE_FPS := 2.5     # arms bobbing on the surface, not striding
 # Rain slows the holidaymakers exactly as it slows an un-jacketed worker, so a
 # storm reads as one weather system acting on everyone rather than a penalty
 # aimed only at the player.
-const STORM_SPEED := 0.55
+# Tourists slow to a trudge in a storm, lingering on the beach -- so storms are
+# crowded as well as slow. (0.55 at first.)
+const STORM_SPEED := 0.35
 
 # Tourists are shoved by GUSTS only, not the steady wind. A constant push would
 # walk every one of them into the right-hand wall over their lifetime -- which
