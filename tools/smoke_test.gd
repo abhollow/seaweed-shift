@@ -72,6 +72,42 @@ func _run() -> void:
 
 	# --- boot -------------------------------------------------------------
 	print("[boot]")
+	print("\n[tutorial]")
+	check("a new game opens on the tutorial", game.tutorial.visible and not game.level_intro.visible)
+	check("the game waits behind it", paused)
+	check("level 1's music waits for START SHIFT!", game._hold_music and game.audio._playlist.is_empty())
+	check("it has eight steps", game.tutorial.steps.size() == 8)
+	check("with a scene staged for it: piles, a rotting pile, a tourist", game._staged.size() == 5
+		and (game._staged[1] as Seaweed).rot_progress() > 0.9)
+	var holes_ok := true
+	var flips := 0
+	var was_top: bool = game.tutorial.steps[0]["top"]
+	for i in game.tutorial.steps.size():
+		var st: Dictionary = game.tutorial.steps[i]
+		for h in st["holes"]:
+			var hr: Rect2 = h["rect"]
+			if hr.size.x <= 0.0 or not Rect2(0, 0, 360, 640).intersects(hr):
+				holes_ok = false
+		if bool(st["top"]) != was_top:
+			flips += 1
+			was_top = st["top"]
+	check("every step spotlights something on screen", holes_ok)
+	check("the card moves to stay clear of what it points at", flips >= 2)
+	for i in game.tutorial.steps.size() - 1:
+		game.tutorial._on_next()
+	check("NEXT walks through to the last step", game.tutorial.step == game.tutorial.steps.size() - 1)
+	check("whose button is START SHIFT!", game.tutorial._next.text == "START SHIFT!")
+	var staged_before: Array = game._staged.duplicate()
+	game.tutorial._on_next()
+	await frames(2)
+	check("START SHIFT! ends the tutorial", not game.tutorial.visible and game.tutorial_done)
+	check("and plays level 1's music", not game._hold_music and not game.audio._playlist.is_empty())
+	var cleared := true
+	for n in staged_before:
+		if is_instance_valid(n):
+			cleared = false
+	check("the staged scene is cleared away", cleared)
+	check("and the worker is back in the bay", game.player.position.distance_to(Zones.BAY_POS) < 1.0)
 	check("a new game opens on the level intro", game.level_intro.visible)
 	check("the intro names the location",
 		game.level_intro._name.text == Beaches.name_of(1).to_upper())
@@ -472,7 +508,7 @@ func _run() -> void:
 	check("all upgrades owned", game.owned.size() == 9)
 	check("capacity is 100 not 10", game.player.capacity == 100)
 	check("reach is tractor's 22", game.player.reach == 22.0)
-	check("price doubled", game.price_per_unit == 6)
+	check("price doubled", game.price_per_unit == Game.SORTER_PAY and Game.SORTER_PAY == Game.BASE_PAY * 2)
 	check("deep unlocked", game.player.can_enter_deep)
 	check("upgrade bed playing", game.weather.bed == Weather.Bed.UPGRADE)
 
@@ -824,6 +860,7 @@ func _run() -> void:
 	if game.level_intro.visible:
 		game.start_from_intro()
 		await frames(2)
+	check("a saved game never replays the tutorial", not game.tutorial.visible and game.tutorial_done)
 	check("reloads the saved credits", game.credits == 4321)
 
 	game._save_progress()
@@ -2102,6 +2139,48 @@ func _run() -> void:
 	game.shop.visible = false
 	game.credits = keep_cr
 	game.level_index = keep_lix
+
+	print("\n[tutorial: skip and music hand-over]")
+	game.level = 1
+	game.level_index = 0
+	game.apply_beach()
+	game._hold_music = true
+	game.begin_level()
+	game.start_tutorial()
+	await frames(1)
+	check("the tutorial can be started", game.tutorial.visible and paused)
+	var staged_s: Array = game._staged.duplicate()
+	game.tutorial._skip.pressed.emit()
+	await frames(2)
+	var gone := true
+	for n in staged_s:
+		if is_instance_valid(n):
+			gone = false
+	check("SKIP lands exactly where START SHIFT! does",
+		not game.tutorial.visible and game.level_intro.visible and gone
+			and not game._hold_music and not game.audio._playlist.is_empty())
+	game.start_from_intro()
+	await frames(1)
+	# The menu's music player, handed over: kept through the tutorial...
+	var mm := AudioStreamPlayer.new()
+	mm.stream = load("res://audio/Island_Jump.mp3")
+	mm.bus = "Music"
+	game.menu_music = mm
+	game.menu_music_pos = 12.0
+	game._adopt_menu_music(true)
+	await frames(2)
+	check("the menu music keeps playing into the tutorial", mm.playing and mm.process_mode == Node.PROCESS_MODE_ALWAYS)
+	check("picking up where the menu left it", mm.get_playback_position() >= 11.9)
+	# ...and faded out when the level's music takes over.
+	game._fade_menu_music(0.2)
+	for i in 40:
+		await process_frame
+	check("then fades out once the level's music takes over", not is_instance_valid(mm))
+	var mm2 := AudioStreamPlayer.new()
+	mm2.stream = load("res://audio/Island_Jump.mp3")
+	game.menu_music = mm2
+	game._adopt_menu_music(false)
+	check("without a tutorial it fades straight away", game.menu_music == null)
 
 	print("\n[adaptive difficulty]")
 	var keep_adapt: float = game.adapt

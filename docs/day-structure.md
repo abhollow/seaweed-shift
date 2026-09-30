@@ -191,3 +191,56 @@ past the screen edge (now 352px).
 
 Both tests were checked to FAIL with their fix removed -- a test that cannot fail
 guards nothing.
+
+
+## Shift length -- pay doubled
+
+Playtesting put shifts at about **10 minutes** -- double the ~5 minute session
+mobile players settle into (GameAnalytics' 2025 benchmarks: median-tier games
+5-6 minutes, top-tier 8-9), and long across ten levels of four shifts.
+
+A shift ends when its credit target is earned, so shift length is target
+divided by earning rate. Pay per unit was doubled -- base 3 -> **6**, Sorter
+6 -> **12** (`Game.BASE_PAY`, `Game.SORTER_PAY`) -- which halves the units a shift
+needs while earning **exactly the same credits per shift**. Upgrade prices, shop
+pacing, the resort bonus and hatchling rewards all stay in balance.
+
+Lowering the targets instead was rejected: it would have halved income per
+shift and doubled the shifts needed to afford each upgrade.
+
+Expect around 5 minutes; the summary panel's "Shift time" shows the real
+figure. Every level's signature event runs on a timer of a minute or less, so
+each still fires several times a shift; ordinary storms (every ~2 minutes) now
+come about twice a shift rather than five times. The Tulum hurricane follows
+progress rather than the clock, so its whole arc still fits one shift.
+
+
+## The tutorial
+
+A read-and-tap tutorial plays when a new game reaches level 1, before the
+Cancun intro card (`scripts/ui/tutorial.gd`, `shaders/spotlight.gdshader`).
+
+Eight steps -- keep the beach clean (the goal bar), move, rake it up, watch
+your load, cash in at the skip, don't let it rot, mind the tourists, upgrade in
+the shop. Each dims the screen except what it explains (up to two spotlights --
+"don't let it rot" lights a rotting pile AND the reputation bar, so cause and
+effect are on screen together), rings it in gold, and puts the tip card on the
+opposite side so it never covers its subject. NEXT moves on; SKIP TUTORIAL ends
+it; the last button is START SHIFT!.
+
+It covers the basics only: each level's own twist is introduced by its intro
+card.
+
+**Staging.** The game is paused behind it with a small scene set up for the
+steps to point at -- a big pile, a rotting pile, two small ones, a tourist, the
+worker mid-beach -- all cleared away at the end, with the worker back in the bay.
+
+**Music.** The menu hands its music player to the game instead of fading it.
+(An AudioStreamPlayer stops when it leaves the scene tree, so it resumes from
+the position the menu had reached.) The menu track plays on through the
+tutorial -- set to keep running through the pause -- and level 1's music is held
+back until START SHIFT!, when it takes over and the menu track fades out. With
+no tutorial, the menu track fades out under the level's music as before.
+
+**Once per new game.** `tutorial_done` is saved, so continuing a game never
+replays it; a new game starts fresh and plays it again (SKIP is right there).

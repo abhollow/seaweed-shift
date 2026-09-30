@@ -356,12 +356,20 @@ func _jump_to_level(n: int) -> void:
 
 
 func _start(fresh: bool) -> void:
-	await _fade_out_music()
 	# Instanced by hand rather than change_scene_to_packed(), because the fresh
 	# flag has to be set BEFORE the game's _ready() decides whether to load.
 	var packed: PackedScene = load(MAIN_SCENE)
 	var game = packed.instantiate()
 	game.start_fresh = fresh
+	# Hand the music over rather than fading it: a new game plays the tutorial
+	# over the menu track, and otherwise the game fades it out under the
+	# level's own music. It stops on leaving the tree, so note where it was.
+	if _music != null and _music.playing:
+		var pos := _music.get_playback_position()
+		remove_child(_music)
+		game.menu_music = _music
+		game.menu_music_pos = pos
+		_music = null
 	get_tree().root.add_child(game)
 	var old := get_tree().current_scene
 	get_tree().current_scene = game

@@ -57,7 +57,17 @@ const MUSIC_DB := -8.0
 
 # --- shared state -----------------------------------------------------------
 var credits := 0
-var price_per_unit := 3
+# Pay per unit of seaweed. A shift ends when its credit target is earned, so pay
+# sets how LONG a shift runs. At 3 (6 with the Sorter) shifts ran about ten
+# minutes -- double the ~5 minute session that mobile players settle into, and
+# long once the campaign had ten levels of four shifts. Doubling pay halves the
+# units a shift needs while earning exactly the same credits per shift, so
+# upgrade prices, shop pacing and the resort bonus all stay in balance. (Lowering
+# the targets instead would have halved income and doubled the shifts needed to
+# afford each upgrade.)
+const BASE_PAY := 6
+const SORTER_PAY := 12
+var price_per_unit := BASE_PAY
 var storm_active := false
 var happy_hour := false
 var owned := {}
@@ -99,6 +109,16 @@ var spawner: Spawner
 var weather: Weather
 var wind: Wind
 var level_intro: LevelIntro
+
+# The tutorial (new games only). The menu hands its music player over so the
+# menu track keeps playing through it; the level's own music is held back until
+# START SHIFT!.
+var tutorial: Tutorial
+var tutorial_done := false
+var menu_music: AudioStreamPlayer = null
+var menu_music_pos := 0.0
+var _hold_music := false
+var _staged: Array = []
 var ferry: Ferry
 var vip: VipZone
 var vip_weight := 1.0
@@ -176,9 +196,16 @@ func _ready() -> void:
 		_load_progress()
 
 	apply_beach()
+	# A new game plays the tutorial before level 1's intro card, over the menu
+	# music; the level's own music waits for START SHIFT!.
+	var tut := level == 1 and level_index == 0 and not free_play and not tutorial_done
+	_hold_music = tut
 	begin_level()
 	hud.refresh()
-	if level_index == 0 and not free_play:
+	_adopt_menu_music(tut)
+	if tut:
+		start_tutorial()
+	elif level_index == 0 and not free_play:
 		show_level_intro()
 
 
@@ -445,6 +472,15 @@ func _build_ui() -> void:
 	level_intro.game = self
 	intro_layer.add_child(level_intro)
 	level_intro.build()
+
+	var tut_layer := CanvasLayer.new()
+	tut_layer.layer = 45
+	tut_layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(tut_layer)
+	tutorial = Tutorial.new()
+	tutorial.game = self
+	tut_layer.add_child(tutorial)
+	tutorial.build()
 
 	shop = Shop.new()
 	shop.game = self
@@ -733,11 +769,8 @@ func begin_level() -> void:
 	if hurricane != null:
 		hurricane.configure(Beaches.for_level(level))
 
-	if audio != null:
-		# A level's own soundtrack wins over the shift's. Each location should
-		# sound like somewhere new -- tracks that did not play on earlier beaches.
-		var beach := Beaches.for_level(level)
-		audio.play_playlist(beach.get("music", lv.get("music", DEFAULT_MUSIC)), MUSIC_DB)
+	if audio != null and not _hold_music:
+		_play_level_music()
 
 	player.position = Zones.BAY_POS
 	player.in_safe_zone = true
@@ -800,7 +833,7 @@ func retry_shift() -> void:
 
 
 func _reset_player_stats() -> void:
-	price_per_unit = 3
+	price_per_unit = BASE_PAY
 	player.gather_interval = 0.7
 	player.base_speed = 130.0
 	player.speed_mult = 1.0
@@ -1100,6 +1133,122 @@ func vip_units() -> int:
 	return n
 
 
+func _play_level_music() -> void:
+	# A level's own soundtrack wins over the shift's. Each location should
+	# sound like somewhere new -- tracks that did not play on earlier beaches.
+	var beach := Beaches.for_level(level)
+	var lv := current_level()
+	audio.play_playlist(beach.get("music", lv.get("music", DEFAULT_MUSIC)), MUSIC_DB)
+
+
+func _adopt_menu_music(keep: bool) -> void:
+	# The menu's music player, handed over rather than faded. An AudioStreamPlayer
+	# stops when it leaves the scene tree, so it resumes from where the menu had
+	# it. Kept playing through the tutorial (and through the pause the tutorial
+	# puts the game in); otherwise faded out under the level's music, as before.
+	if menu_music == null:
+		return
+	add_child(menu_music)
+	menu_music.process_mode = Node.PROCESS_MODE_ALWAYS
+	menu_music.play(menu_music_pos)
+	if not keep:
+		_fade_menu_music(0.5)
+
+
+func _fade_menu_music(time: float) -> void:
+	if menu_music == null or not is_instance_valid(menu_music):
+		return
+	var m := menu_music
+	menu_music = null
+	var tw := create_tween()
+	tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tw.tween_property(m, "volume_db", m.volume_db - 40.0, time)
+	tw.tween_callback(m.queue_free)
+
+
+func start_tutorial() -> void:
+	get_tree().paused = true
+	joystick.active = false
+	_stage_tutorial()
+	tutorial.start(_tutorial_steps())
+
+
+func finish_tutorial() -> void:
+	# START SHIFT! (or SKIP): the level's music takes over from the menu's, and
+	# level 1's intro card appears.
+	tutorial_done = true
+	tutorial.visible = false
+	_unstage_tutorial()
+	_hold_music = false
+	if audio != null:
+		_play_level_music()
+	_fade_menu_music(0.9)
+	_save_progress()
+	show_level_intro()
+
+
+func _stage_tutorial() -> void:
+	# A frozen scene for the steps to point at: a big pile, a rotting pile, a
+	# couple of small ones, a tourist, and the worker mid-beach.
+	_staged.clear()
+	var big: Seaweed = spawner._add_seaweed(Vector2(205, Zones.SHORE_Y - 14.0), 8, false, false)
+	var rot: Seaweed = spawner._add_seaweed(Vector2(70, Zones.SHORE_Y - 12.0), 4, false, false)
+	_staged.append(big)
+	_staged.append(rot)
+	_staged.append(spawner._add_seaweed(Vector2(300, Zones.SHORE_Y - 10.0), 1, false, false))
+	_staged.append(spawner._add_seaweed(Vector2(140, Zones.HOTEL_BOTTOM + 90.0), 1, false, false))
+	rot.age = 1.0e4
+	rot._refresh()
+	_staged.append(spawner.make_tourist(Vector2(262, Zones.HOTEL_BOTTOM + 90.0), Zones.SHALLOW_TOP + 40.0, false))
+	player.position = Vector2(175, Zones.HOTEL_BOTTOM + 150.0)
+	player.in_safe_zone = false
+
+
+func _unstage_tutorial() -> void:
+	for n in _staged:
+		if is_instance_valid(n):
+			n.queue_free()
+	_staged.clear()
+	player.position = Zones.BAY_POS
+	player.in_safe_zone = true
+
+
+func _tutorial_steps() -> Array:
+	var ring := func(c: Vector2, r: float) -> Dictionary:
+		return {"rect": Rect2(c - Vector2(r, r), Vector2(r, r) * 2.0), "circle": true}
+	var box := func(ctl: Control, g: float) -> Dictionary:
+		return {"rect": ctl.get_global_rect().grow(g), "circle": false}
+	var big: Seaweed = _staged[0]
+	var rot: Seaweed = _staged[1]
+	var who: Node2D = _staged[4]
+	return [
+		{"title": "KEEP THE BEACH CLEAN", "top": true,
+			"body": "Rake up seaweed and cash it in. Fill this bar to finish the shift.",
+			"holes": [box.call(hud._goal_bg, 4.0)]},
+		{"title": "MOVE", "top": true, "joystick": true,
+			"body": "Touch anywhere and drag to walk. Let go to stop.",
+			"holes": [ring.call(Vector2(90, 500), 58.0)]},
+		{"title": "RAKE IT UP", "top": true,
+			"body": "Stand on a pile to rake it in. Bigger piles take longer -- and are worth more.",
+			"holes": [ring.call(big.position, 34.0)]},
+		{"title": "WATCH YOUR LOAD", "top": false,
+			"body": "You can only carry so much. When it's full, you can't pick up any more.",
+			"holes": [box.call(hud._lbl_carry, 3.0)]},
+		{"title": "CASH IN AT THE SKIP", "top": false,
+			"body": "Walk into the bay to tip your load and get paid.",
+			"holes": [ring.call(_bay_bin.global_position, 40.0)]},
+		{"title": "DON'T LET IT ROT", "top": true,
+			"body": "Seaweed left out rots, and your reputation drops. Hit zero and you're fired.",
+			"holes": [ring.call(rot.position, 30.0), box.call(hud._rep_bg, 4.0)]},
+		{"title": "MIND THE TOURISTS", "top": false,
+			"body": "Bump into one and you'll drop your whole load on the sand.",
+			"holes": [ring.call(who.position, 32.0)]},
+		{"title": "UPGRADE IN THE SHOP", "top": false,
+			"body": "Tap SHOP to spend credits: faster rakes, bigger loads -- and later, a tractor.",
+			"holes": [box.call(hud._shop_btn, 3.0)]},
+	]
+
+
 func show_level_intro() -> void:
 	# Holds the game until the player chooses to start. Not shown when a failed
 	# shift is retried -- only when a level genuinely begins.
@@ -1172,7 +1321,7 @@ func apply_upgrade(id: String) -> void:
 		"sand_tires":
 			player.has_sand_tires = true
 		"sorter":
-			price_per_unit = 6
+			price_per_unit = SORTER_PAY
 		"diesel":
 			player.speed_mult = 1.4
 		"trawler":
@@ -1266,6 +1415,7 @@ func _load_progress() -> void:
 	level_index = clampi(level_index, 0, Levels.LIST.size() - 1)
 	level = maxi(1, int(data.get("level", 1)))
 	adapt = clampf(float(data.get("adapt", 1.0)), ADAPT_MIN, ADAPT_MAX)
+	tutorial_done = bool(data.get("tutorial_done", false))
 	shift_fails = maxi(0, int(data.get("shift_fails", 0)))
 	var saved_retained = data.get("retained", {})
 	if typeof(saved_retained) == TYPE_DICTIONARY:
@@ -1292,6 +1442,7 @@ func _save_progress() -> void:
 		"retained": retained,
 		"adapt": adapt,
 		"shift_fails": shift_fails,
+		"tutorial_done": tutorial_done,
 	})
 
 
