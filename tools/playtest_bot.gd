@@ -17,7 +17,7 @@ extends SceneTree
 
 const RETAIN_ORDER := ["rake2", "backpack", "waders", "jacket", "tractor", "sorter",
 	"sand_tires", "hopper", "diesel", "trawler"]
-const BUY_ORDER := ["rake2", "backpack", "jacket", "waders", "tractor", "sorter",
+const BUY_ORDER := ["rake2", "backpack", "jacket", "waders", "tractor", "sorter", "seagull",
 	"sand_tires", "hopper", "diesel", "trawler"]
 
 var game

@@ -95,6 +95,8 @@ func _build() -> void:
 	add_child(_water)
 	_water_frame = 0
 
+	_build_swimmers()
+
 	# The art is bright and busy. A scrim buys back enough contrast for the
 	# title and the "no saved shift" line without dulling the resort itself.
 	var scrim := ColorRect.new()
@@ -202,6 +204,46 @@ func _build_clouds() -> void:
 		_clouds.append({"node": spr, "speed": speed})
 
 
+# A few tourists bobbing in the sea, for life. Placed where the water shows
+# round the buttons: the strip above them, both edges, and below. Drawn with
+# the game's own waist-deep sprites and outfit tint.
+const SWIMMER_SPOTS := [
+	Vector2(30, 418), Vector2(120, 412), Vector2(262, 420), Vector2(340, 520), Vector2(20, 610),
+]
+const SWIM_FPS := 2.5
+var _swimmers: Array = []
+
+
+func _build_swimmers() -> void:
+	var t: Tourist = load("res://scenes/tourist.tscn").instantiate()
+	var sets := [t.tex_wade_sober_m, t.tex_wade_sober_f, t.tex_wade_drunk_m, t.tex_wade_drunk_f]
+	t.free()
+	var colours: Array = Spawner.TOURIST_COLOURS.values()
+	for spot in SWIMMER_SPOTS:
+		var frames: Array = sets.pick_random()
+		if frames.is_empty():
+			continue
+		var spr := Sprite2D.new()
+		spr.texture = frames[0]
+		spr.scale = Vector2(2, 2)
+		spr.flip_h = randf() < 0.5
+		spr.position = spot
+		spr.material = Tourist._tint_for(colours.pick_random())
+		add_child(spr)
+		_swimmers.append({"node": spr, "frames": frames, "home": spot, "t": randf() * TAU})
+
+
+func _bob_swimmers(delta: float) -> void:
+	for s in _swimmers:
+		s["t"] += delta
+		var t: float = s["t"]
+		var spr: Sprite2D = s["node"]
+		var frames: Array = s["frames"]
+		spr.texture = frames[int(t * SWIM_FPS) % frames.size()]
+		# Up and down on the swell, and a slow wander side to side.
+		spr.position = s["home"] + Vector2(sin(t * 0.4) * 6.0, sin(t * 1.7) * 1.5)
+
+
 func _drift_clouds(delta: float) -> void:
 	for c in _clouds:
 		var n: TextureRect = c["node"]
@@ -215,6 +257,7 @@ func _drift_clouds(delta: float) -> void:
 
 func _process(delta: float) -> void:
 	_drift_clouds(delta)
+	_bob_swimmers(delta)
 	if _water == null:
 		return
 	_water_t += delta * WATER_FPS

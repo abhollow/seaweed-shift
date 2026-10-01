@@ -1871,6 +1871,10 @@ func _run() -> void:
 	check("and heavy: two slots per unit", sg.weight() == 2 and plain.weight() == 1)
 	# the load: with one slot left, a heavy unit must NOT be taken -- and not lost
 	var keep_cap: int = game.player.capacity
+	# A stunned or wave-knocked worker cannot rake at all; earlier sections can
+	# leave either running.
+	game.player._stun = 0.0
+	game.player._knocking = false
 	game.player.carried = keep_cap - 1
 	sg._player = game.player
 	sg._timer = 99.0
@@ -2006,6 +2010,50 @@ func _run() -> void:
 		if not h9.hatching():
 			break
 	check("clear it and they carry on to the sea", h9._saved == h9.count)
+	# the real hatching: one or two from every nest, wandering, and seaweed
+	# planted in their way just before
+	for c in game.world.get_children():
+		if c is Seaweed:
+			c.free()
+	h9._t = -1.0
+	h9._warned = false
+	h9._next = Hatchlings.WARN_LEAD - 0.01
+	h9.tick(0.01)
+	var planted := 0
+	for c in game.world.get_children():
+		if c is Seaweed and (c as Seaweed).drifting:
+			planted += 1
+	check("just before a hatching, seaweed washes up in their way", planted == Hatchlings.PLANT_NESTS)
+	check("and the HUD warns the nests are stirring", h9.status_text().contains("STIRRING"))
+	for c in game.world.get_children():
+		if c is Seaweed:
+			c.free()
+	h9.start()
+	var per_nest := []
+	for nr in game.nests:
+		var nn := 0
+		for ht in h9.turtles:
+			var hp: Vector2 = ht["pos"]
+			if hp.x >= (nr as Rect2).position.x and hp.x <= (nr as Rect2).end.x and absf(hp.y - (nr as Rect2).end.y) < 6.0:
+				nn += 1
+		per_nest.append(nn)
+	check("one or two hatch from every nest", per_nest.all(func(v): return v >= 1 and v <= 2))
+	var x0: Array = h9.turtles.map(func(ht): return (ht["pos"] as Vector2).x)
+	for i in 30:
+		h9.tick(0.1)
+	var moved_x := 0.0
+	for i in h9.turtles.size():
+		moved_x = maxf(moved_x, absf((h9.turtles[i]["pos"] as Vector2).x - float(x0[i])))
+	check("and they wander down, not in a straight line", moved_x > 4.0)
+	var in_nest := false
+	for ht in h9.turtles:
+		if game.in_nest(ht["pos"], -0.5):
+			in_nest = true
+	check("round the other nests, never through them", not in_nest)
+	for i in 300:
+		h9.tick(0.1)
+		if not h9.hatching():
+			break
 	# left stuck until time runs out, it costs reputation
 	var wall2 := []
 	var n2: Rect2 = game.nests[2]
@@ -2084,6 +2132,182 @@ func _run() -> void:
 	game.level = 1
 	game.apply_beach()
 	game.begin_level()
+	await frames(1)
+
+	print("\n[crab]")
+	var cb: Crab = game.crab
+	game.level = 1
+	game.apply_beach()
+	game.begin_level()
+	check("no crab on beaches without one", not cb.active)
+	check("the crab has all its art: sideways, toward, away, digging",
+		cb._side.size() == 4 and cb._front.size() == 4 and cb._back.size() == 4 and cb._dig.size() == 4)
+	game.level = 3
+	game.apply_beach()
+	var crab_shift := int(Beaches.for_level(3)["crab"]["shift"])
+	game.level_index = (crab_shift + 1) % Levels.LIST.size()
+	game.begin_level()
+	check("only in its one shift of the level", not cb.active)
+	game.level_index = crab_shift
+	game.begin_level()
+	check("Playa del Carmen's crab waits in its shift", cb.active and cb.state == Crab.State.WAITING)
+	for c in game.world.get_children():
+		if c is Tourist:
+			c.free()
+	cb._wait = 0.0
+	cb.tick(0.01)
+	check("it surfaces as a twitching mound, a fair way off",
+		cb.state == Crab.State.LURKING and cb.pos.distance_to(game.player.position) > 100.0)
+	check("and the HUD warns about it", cb.status_text().contains("SAND"))
+	for i in 40:
+		cb.tick(0.1)
+	check("then pops up and gives chase", cb.state == Crab.State.CHASING)
+	# The lure: a tourist close by takes its attention off the worker.
+	game.player.position = Vector2(180, Zones.SHORE_Y - 40.0)
+	game.player.in_safe_zone = false
+	game.player._stun = 0.0
+	cb.pos = Vector2(80, Zones.SHORE_Y - 40.0)
+	var decoy: Tourist = game.spawner.make_tourist(cb.pos + Vector2(10, 0), Zones.SHORE_Y, false)
+	decoy.set_process(false)
+	cb._ignore_left = 0.0
+	cb.tick(0.05)
+	check("lead it into a tourist and it follows them instead", cb.chasing_tourist())
+	for i in 60:
+		cb.tick(0.1)
+	check("for a while, then it turns back to the worker", not cb.chasing_tourist())
+	decoy.free()
+	# (Back to the worker, it may well have caught them by now -- put it back
+	# on the hunt for the remaining checks.)
+	cb._enter(Crab.State.CHASING)
+	game.player._stun = 0.0
+	# Beach only: the worker wading out is out of its reach.
+	game.player.position = Vector2(180, Zones.SHALLOW_TOP + 30.0)
+	cb._hunt_left = 30.0
+	for i in 40:
+		cb.tick(0.1)
+	check("it never leaves the sand", cb.pos.y <= Zones.SHORE_Y)
+	# Slower in a storm.
+	var c0: Vector2 = cb.pos
+	game.storm_active = true
+	cb.pos = Vector2(60, Zones.HOTEL_BOTTOM + 40.0)
+	c0 = cb.pos
+	game.player.position = Vector2(300, Zones.HOTEL_BOTTOM + 40.0)
+	cb.tick(1.0)
+	var storm_step: float = cb.pos.distance_to(c0)
+	game.storm_active = false
+	c0 = cb.pos
+	cb.tick(1.0)
+	check("slower in a storm", storm_step < cb.pos.distance_to(c0) * 0.75)
+	check("and slower than the worker on foot", cb.pos.distance_to(c0) < game.player.base_speed)
+	# Reaching the worker is a hit: the load is dropped.
+	game.player.carried = 6
+	game.player.carried_value = 27.0
+	game.player._stun = 0.0
+	cb.pos = game.player.position + Vector2(4, 0)
+	cb.tick(0.01)
+	check("catching the worker drops their load", game.player.carried == 0)
+	check("and it digs back in", cb.state == Crab.State.BURROWING)
+	cb.tick(1.0)
+	check("and is gone for the level", cb.state == Crab.State.GONE and not cb.out())
+	await frames(2)
+	game.player._stun = 0.0
+	game.level = 1
+	game.level_index = 0
+	game.apply_beach()
+	game.begin_level()
+	await frames(1)
+
+	print("\n[parasail]")
+	var ps: Parasail = game.parasail
+	game.level = 2
+	game.apply_beach()
+	game.level_index = 0
+	game.begin_level()
+	check("no parasail on beaches without one", not ps.active)
+	game.level = 1
+	game.apply_beach()
+	game.level_index = int(Beaches.for_level(1)["parasail"]["shift"])
+	game.begin_level()
+	check("Cancun has its parasailer, once, in its shift", ps.active and ps.state == Parasail.State.WAITING)
+	check("with its boat and canopy art", ps._boat_spr.texture != null and ps._canopy_spr.texture != null)
+	ps._wait = 0.0
+	ps.tick(0.01)
+	check("the boat sets off across the sea", ps.state == Parasail.State.TOWING and ps._flying)
+	var crossed := false
+	for i in 400:
+		ps.tick(0.05)
+		if not ps._flying and not crossed:
+			crossed = true
+			check("the parasailer lets go about halfway across",
+				absf(ps.chute_pos().x - Zones.VIEW_W * 0.5) < 9.0)
+	check("they land in the sea with a splash, and the boat leaves",
+		crossed and ps.state == Parasail.State.GONE)
+	game.level_index = 0
+	game.begin_level()
+	await frames(1)
+
+	print("\n[gentle storm on foot]")
+	var keep_gear: Dictionary = game.owned.duplicate()
+	game.owned = {}
+	var riders := 0
+	for i in 200:
+		var probe: Seaweed = game.spawner._add_seaweed(Vector2(180, Zones.DEEP_TOP + 40.0), 1, false, true)
+		if probe.storm_rider:
+			riders += 1
+		probe.free()
+	check("with no jacket or backpack, storms are gentle", game.gentle_storm())
+	check("and only about half the floating seaweed rides the surge", riders > 70 and riders < 130)
+	game.owned = {"backpack": true}
+	check("a backpack brings full storms back", not game.gentle_storm())
+	game.owned = keep_gear
+
+	print("\n[pet seagull]")
+	var gl: Seagull = game.gull
+	var keep_owned2: Dictionary = game.owned.duplicate()
+	game.level = 1
+	game.apply_beach()
+	game.begin_level()
+	check("no seagull until it is bought", not gl.enabled)
+	check("the seagull has its art: flying and perched", gl._fly.size() == 4 and gl._perch.size() == 2)
+	check("it is a tier-2 upgrade with no prerequisite",
+		int(Upgrades.by_id("seagull")["tier"]) == 2 and String(Upgrades.by_id("seagull")["needs"]) == "")
+	game.owned["seagull"] = true
+	game.apply_upgrade("seagull")
+	check("bought, it perches on the skip", gl.enabled and gl.state == Seagull.State.PERCHED
+		and gl.pos.distance_to(gl.perch()) < 1.0)
+	for c in game.world.get_children():
+		if c is Seaweed:
+			c.free()
+	var fresh_pile: Seaweed = game.spawner._add_seaweed(Vector2(120, Zones.SHORE_Y - 20.0), 3, false, false)
+	for i in 20:
+		gl.tick(0.1)
+	check("it ignores fresh seaweed", gl.state == Seagull.State.PERCHED)
+	var browning: Seaweed = game.spawner._add_seaweed(Vector2(60, Zones.SHORE_Y - 20.0), 2, false, false)
+	browning.age = Seaweed.ROT_WARN + 2.0
+	check("but goes for seaweed that has only started to rot", gl._worst_rot() == browning)
+	browning.free()
+	var rot_pile: Seaweed = game.spawner._add_seaweed(Vector2(200, Zones.SHORE_Y - 20.0), 3, false, false)
+	rot_pile.age = 1.0e4
+	var credits0: int = game.credits_earned
+	var flew := false
+	for i in 800:
+		gl.tick(0.05)
+		if gl.state == Seagull.State.OUT:
+			flew = true
+	check("a rotten pile and it flies out for it", flew)
+	check("it clears the rot, a beakful at a time", not is_instance_valid(rot_pile) or rot_pile.units == 0
+		or rot_pile.is_queued_for_deletion())
+	check("and leaves fresh seaweed for the worker", is_instance_valid(fresh_pile) and fresh_pile.units == 3)
+	check("its seaweed never pays", game.credits_earned == credits0)
+	check("then settles back on the skip", gl.state == Seagull.State.PERCHED)
+	check("slower than the worker", Seagull.SPEED < game.player.base_speed)
+	fresh_pile.free()
+	game._reset_player_stats()
+	check("a new level without it sends it away", not gl.enabled)
+	game.owned = keep_owned2
+	for gu in Upgrades.LIST:
+		if game.owned.has(String(gu["id"])):
+			game.apply_upgrade(String(gu["id"]))
 	await frames(1)
 
 	print("\n[every level's soundtrack]")
@@ -2318,7 +2542,8 @@ func _run() -> void:
 		if levels_played > 20:
 			break
 	check("the campaign is exactly ten levels", levels_played == 10)
-	check("every upgrade ends up retained", game.retained.size() == Upgrades.LIST.size())
+	check("every keepable upgrade ends up retained", game.retained.size() == Upgrades.keepable_count())
+	check("the seagull is a hire, never kept", not game.retained.has("seagull"))
 	var ordered := true
 	for i in range(1, tiers_seen.size()):
 		if tiers_seen[i] < tiers_seen[i - 1]:

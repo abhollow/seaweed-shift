@@ -322,6 +322,9 @@ func _refresh_status(rep: Reputation, player: Player) -> void:
 		else:
 			_lbl_status.text = "SET ROLLING IN -- COUNT THE WAVES"
 		return
+	if game.crab != null and game.crab.status_text() != "":
+		_lbl_status.text = game.crab.status_text()
+		return
 	if game.hatch != null and game.hatch.status_text() != "":
 		_lbl_status.text = game.hatch.status_text()
 		return

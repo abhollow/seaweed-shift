@@ -12,6 +12,9 @@ const LIST := {
 	1: {
 		"name": "Cancun",
 		"tourists": "pink",  # most of the crowd wears this; see Spawner.TOURIST_COLOURS
+		# Just for laughs, once a level in shift 1 (0-based below): a parasailer
+		# drops out of the sky into the sea. See systems/parasail.gd.
+		"parasail": {"shift": 0, "at": [40.0, 90.0]},
 		"tagline": "Your first shift at the resort. Keep the beach clean and the guests happy.",
 		"background": "res://assets/sprites/background_level1.png",
 		"water": "res://assets/sprites/water_%02d.png",
@@ -66,6 +69,9 @@ const LIST := {
 	3: {
 		"name": "Playa del Carmen",
 		"tourists": "purple",  # most of the crowd wears this; see Spawner.TOURIST_COLOURS
+		# Once a level, in shift 2 (0-based below), 35-80s in: a crab digs out of
+		# the sand and chases the worker. See systems/crab.gd.
+		"crab": {"shift": 1, "at": [35.0, 80.0], "speed": 80.0, "chase": 24.0},
 		"tagline": "The bay is on the left. Keep the VIP frontage spotless -- and watch for the Cozumel ferry.",
 		# The beach club's frontage, from its daybeds down to the water, on the
 		# RIGHT -- the far side from the skip. Seaweed there costs triple.
@@ -233,6 +239,12 @@ const LIST := {
 	7: {
 		"name": "Puerto Morelos",
 		"tourists": "blue",  # most of the crowd wears this; see Spawner.TOURIST_COLOURS
+		# Just for laughs, once a level in shift 2 (0-based below): a parasailer
+		# drops out of the sky into the sea. See systems/parasail.gd.
+		"parasail": {"shift": 1, "at": [40.0, 90.0]},
+		# Once a level, in shift 3 (0-based below), 35-80s in: a crab digs out of
+		# the sand and chases the worker. See systems/crab.gd.
+		"crab": {"shift": 2, "at": [35.0, 80.0], "speed": 80.0, "chase": 24.0},
 		"tagline": "A stream runs across the beach. Wade it and it carries you -- and the tourists -- out to sea.",
 		# Unassigned since level 2 became Veracruz; a sunny fishing town suits them.
 		"music": [
@@ -273,6 +285,9 @@ const LIST := {
 	8: {
 		"name": "Mahahual",
 		"tourists": "purple",  # most of the crowd wears this; see Spawner.TOURIST_COLOURS
+		# Once a level, in shift 2 (0-based below), 35-80s in: a crab digs out of
+		# the sand and chases the worker. See systems/crab.gd.
+		"crab": {"shift": 1, "at": [35.0, 80.0], "speed": 80.0, "chase": 24.0},
 		"tagline": "Sargassum season. Golden weed is heavy and rots fast -- and watch for the mat coming in.",
 		"music": [
 			"res://audio/Tense_Beach_Game_1.mp3",
@@ -334,6 +349,12 @@ const LIST := {
 	10: {
 		"name": "Tulum",
 		"tourists": "pink",  # most of the crowd wears this; see Spawner.TOURIST_COLOURS
+		# Just for laughs, once a level in shift 2 (0-based below): a parasailer
+		# drops out of the sky into the sea. See systems/parasail.gd.
+		"parasail": {"shift": 1, "at": [40.0, 90.0]},
+		# Once a level, in shift 1 -- before the hurricane builds; Tulum's later
+		# shifts are the hardest in the game already. See systems/crab.gd.
+		"crab": {"shift": 0, "at": [35.0, 80.0], "speed": 80.0, "chase": 24.0},
 		"tagline": "The finale. A hurricane is coming -- and when the eye passes, the wind turns.",
 		# The hurricane conducts the wind, the storm and the surf through the
 		# shift; random storms and Happy Hour are off so nothing competes.
@@ -380,6 +401,9 @@ const LIST := {
 			"tourist_despawn_y": 182.0,
 			"bay_pos": Vector2(311, 160),
 		},
+		# The skip sprite sits up on the plaza; at the bay centre it was drawn on
+		# the cliff face. Only the drawing moves -- the drop-off zone is unchanged.
+		"bin_y": -34.0,
 		"music": [
 			"res://audio/Tropical_Storm_Reggae_1.mp3",
 			"res://audio/Tropical_Storm_Reggae_2.mp3",

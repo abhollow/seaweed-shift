@@ -13,6 +13,7 @@ const POOL_SIZE := 14
 const SOUNDS := {
 	"pickup": "res://audio/pickup.mp3",
 	"dump": "res://audio/dump.mp3",
+	"skip_dump": "res://audio/skip_dump.mp3",       # tipping a load at the skip
 	"full": "res://audio/full.mp3",
 	"purchase": "res://audio/purchase.mp3",
 	"package": "res://audio/package.mp3",

@@ -309,7 +309,7 @@ static func _tint_for(hue: float) -> ShaderMaterial:
 	if not _tints.has(hue):
 		var m := ShaderMaterial.new()
 		m.shader = TINT_SHADER
-		m.set_shader_parameter("hue_offset", fposmod(hue - 330.0, 360.0) / 360.0)
+		m.set_shader_parameter("target", hue)
 		_tints[hue] = m
 	return _tints[hue]
 

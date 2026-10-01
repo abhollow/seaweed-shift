@@ -145,6 +145,9 @@ var holbox: Holbox
 var stream: Stream
 var mat: SargassumMat
 var hatch: Hatchlings
+var crab: Crab
+var parasail: Parasail
+var gull: Seagull
 var hurricane: Hurricane
 
 # Turtle-nest enclosures (Akumal): solid obstacles on the sand, from the art.
@@ -220,6 +223,9 @@ func _process(delta: float) -> void:
 	stream.tick(delta)
 	mat.tick(delta)
 	hatch.tick(delta)
+	crab.tick(delta)
+	parasail.tick(delta)
+	gull.tick(delta)
 	hurricane.tick(delta)
 	if _sway_mat != null:
 		var g: float = wind.gust_shape()
@@ -376,7 +382,7 @@ func _build_bay() -> void:
 		_bay_bin = bin_spr
 		# Pushed hard against the bay's OUTER wall -- right on most beaches,
 		# left where a level puts the bay on the left.
-		bin_spr.position = Vector2(_bin_offset(), 0)
+		bin_spr.position = Vector2(_bin_offset(), _bin_y())
 		var bt := tex_bin.get_size()
 		if bt.x > 0.0 and bt.y > 0.0:
 			bin_spr.scale = Vector2(Zones.BIN_SIZE.x / bt.x, Zones.BIN_SIZE.y / bt.y)
@@ -563,6 +569,24 @@ func _build_systems() -> void:
 	hatch.z_index = 2
 	world.add_child(hatch)
 
+	# The crab scuttles over the sand, above the seaweed, below the worker.
+	crab = Crab.new()
+	crab.game = self
+	crab.z_index = 2
+	world.add_child(crab)
+
+	# The parasailer flies over everything on the beach.
+	parasail = Parasail.new()
+	parasail.game = self
+	parasail.z_index = 55
+	world.add_child(parasail)
+
+	# The Pet Seagull: over the beach, under the night's darkness.
+	gull = Seagull.new()
+	gull.game = self
+	gull.z_index = 45
+	world.add_child(gull)
+
 	hurricane = Hurricane.new()
 	hurricane.game = self
 	add_child(hurricane)
@@ -701,6 +725,18 @@ const HURRICANE_STORM_MULT := 0.70
 const HURRICANE_STORM_BURST := 1
 
 
+# On foot with neither the Rain Jacket nor the Backpack, a storm is gentler:
+# half the floating seaweed rides the surge in (the rest drifts at its normal
+# pace) and half the extra storm seaweed arrives. Without either, the worker
+# moves at 40% speed carrying 5 -- the first storm of level 1 was lost on 5 of
+# 6 bot runs, and by players. Either upgrade restores full storms.
+const GENTLE_STORM := 0.5
+
+
+func gentle_storm() -> bool:
+	return not owned.has("jacket") and not owned.has("backpack")
+
+
 func storm_mult() -> float:
 	var m := maxf(0.2, float(current_level().get("storm_mult", 0.35)))
 	if hurricane != null and hurricane.active:
@@ -738,7 +774,7 @@ func retain_tier() -> int:
 	# first, then the tractor tier, then deep water.
 	for t in [1, 2, 3]:
 		for up in Upgrades.LIST:
-			if int(up["tier"]) == t and not retained.has(String(up["id"])):
+			if int(up["tier"]) == t and Upgrades.keepable(up) and not retained.has(String(up["id"])):
 				return t
 	return 0
 
@@ -754,7 +790,7 @@ func retain_options() -> Array:
 		return out
 	for up in Upgrades.LIST:
 		var id := String(up["id"])
-		if int(up["tier"]) != t or retained.has(id):
+		if int(up["tier"]) != t or retained.has(id) or not Upgrades.keepable(up):
 			continue
 		var needs := String(up["needs"])
 		if needs != "" and not retained.has(needs):
@@ -825,6 +861,13 @@ func begin_level() -> void:
 	# Every shift of the finale starts calm; the hurricane builds again.
 	if hurricane != null:
 		hurricane.configure(Beaches.for_level(level))
+	# Once a level, in its chosen shift.
+	if crab != null:
+		crab.configure(Beaches.for_level(level), level_index)
+	if parasail != null:
+		parasail.configure(Beaches.for_level(level), level_index)
+	if gull != null and gull.enabled:
+		gull.reset()
 
 	if audio != null and not _hold_music:
 		_play_level_music()
@@ -900,6 +943,8 @@ func _reset_player_stats() -> void:
 	player.has_sand_tires = false
 	player.on_vehicle = false
 	player.can_enter_deep = false
+	if gull != null:
+		gull.set_enabled(false)
 	player.max_y = Zones.DEEP_TOP - 12.0
 	if _buoys != null:
 		_buoys.modulate = Color(1, 1, 1, 1)
@@ -1018,6 +1063,12 @@ func _bin_offset() -> float:
 	if over != null:
 		return float(over)
 	return -26.0 if _bay_on_left() else 26.0
+
+
+func _bin_y() -> float:
+	# Where the skip is DRAWN, up or down from the bay centre. The drop-off zone
+	# itself does not move; this only seats the sprite on the art.
+	return float(Beaches.for_level(level).get("bin_y", 0.0))
 
 
 func _apply_bay_bounds() -> void:
@@ -1139,7 +1190,7 @@ func apply_beach() -> void:
 		if _bay_rect != null:
 			_bay_rect.size = Zones.BAY_SIZE
 		if _bay_bin != null:
-			_bay_bin.position.x = _bin_offset()
+			_bay_bin.position = Vector2(_bin_offset(), _bin_y())
 	_apply_bay_bounds()
 
 	if player != null:
@@ -1383,6 +1434,9 @@ func apply_upgrade(id: String) -> void:
 			player.reach = 22.0
 		"sand_tires":
 			player.has_sand_tires = true
+		"seagull":
+			if gull != null:
+				gull.set_enabled(true)
 		"sorter":
 			price_per_unit = SORTER_PAY
 		"diesel":
@@ -1528,9 +1582,7 @@ func _on_bay_entered(body: Node2D) -> void:
 	add_credits(earned)
 	popup("+%d cr" % earned, Zones.BAY_POS + Vector2(-16, -46), Color(1.0, 0.95, 0.5))
 	shake(2.5, 0.16)
-	# Bigger hauls sell higher and louder. Pitch range kept modest -- the dump
-	# sample is a full phrase, and stretching it far reads as a glitch.
-	sfx("dump", clampf(0.94 + float(earned) / 1400.0, 0.94, 1.25))
+	sfx("skip_dump")
 
 
 func _on_bay_exited(body: Node2D) -> void:
@@ -1538,14 +1590,9 @@ func _on_bay_exited(body: Node2D) -> void:
 		(body as Player).in_safe_zone = false
 
 
-# Most of a load a collision can put back on the sand. Two big piles.
-const SPILL_MAX := 16
-
-
 func on_player_hit(lost_units: int, lost_value: int, at: Vector2) -> void:
 	if lost_units <= 0:
 		sfx("hit", 1.25, -6.0)
-		popup("OOF", at, Color(1.0, 0.5, 0.5))
 		shake(4.0, 0.22)
 		return
 	sfx("hit")
@@ -1555,16 +1602,13 @@ func on_player_hit(lost_units: int, lost_value: int, at: Vector2) -> void:
 	# off the mess total at no cost. Now the seaweed is still there and still
 	# counts -- what a hit costs you is the work of picking it all up again.
 	#
-	# Only up to SPILL_MAX lands back, though; the rest of the load (and its
-	# pay) is simply lost. With the 100-unit hopper a full spill was more than
-	# the whole firing line on its own -- in bot playtests one collision ended
-	# almost every late shift, whatever happened before it. The whole load is
-	# still gone, so a hit costs as much as ever; it just can't fire you alone.
+	# The WHOLE load comes back, however big. Held seaweed is off the beach --
+	# it stops counting against reputation the moment it is raked -- but it is
+	# not banked until the skip. Carrying a full hopper is a risk on purpose.
 	# Deferred: a hit arrives inside a physics callback (the tourist's
 	# body_entered), where adding new Area2D piles is refused by the physics
 	# server -- the dropped seaweed came out with dead collision shapes.
-	spawner.scatter.call_deferred(mini(lost_units, SPILL_MAX), at)
-	popup("LOAD DROPPED", at, Color(1.0, 0.42, 0.42))
+	spawner.scatter.call_deferred(lost_units, at)
 	shake(7.0, 0.34)
 
 
@@ -1666,21 +1710,36 @@ func shake(strength: float = 5.0, time: float = 0.28) -> void:
 	_shake_tw.tween_property(world, "position", Vector2.ZERO, time / float(steps))
 
 
-func popup(text: String, pos: Vector2, color: Color) -> void:
+func popup(text: String, pos: Vector2, color: Color, reward: bool = false) -> void:
 	var l := Label.new()
 	l.text = text
 	l.position = pos + Vector2(-40, -28)
 	l.size = Vector2(80, 22)
+	l.pivot_offset = l.size / 2.0
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.add_theme_font_size_override("font_size", 15)
 	l.add_theme_color_override("font_color", color)
+	if reward:
+		# Pickups: bold, a dark edge to lift it off the sand, and a soft glow
+		# in its own colour -- the shadow drawn as a wide, faint outline.
+		l.add_theme_font_override("font", UiTheme.bold())
+		l.add_theme_font_size_override("font_size", 16)
+		l.add_theme_constant_override("outline_size", 3)
+		l.add_theme_color_override("font_outline_color", color.darkened(0.75))
+		l.add_theme_color_override("font_shadow_color", Color(color, 0.45))
+		l.add_theme_constant_override("shadow_outline_size", 7)
+		l.add_theme_constant_override("shadow_offset_x", 0)
+		l.add_theme_constant_override("shadow_offset_y", 0)
 	l.z_index = 60
 	world.add_child(l)
 
 	var tw := create_tween()
 	tw.set_parallel(true)
+	if reward:
+		l.scale = Vector2(1.35, 1.35)
+		tw.tween_property(l, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tw.tween_property(l, "position:y", l.position.y - 28.0, 0.65)
-	tw.tween_property(l, "modulate:a", 0.0, 0.65)
+	tw.tween_property(l, "modulate:a", 0.0, 0.65).set_delay(0.15 if reward else 0.0)
 	tw.chain().tween_callback(l.queue_free)
 
 

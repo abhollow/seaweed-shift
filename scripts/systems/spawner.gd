@@ -79,6 +79,9 @@ func _tick_seaweed(delta: float) -> void:
 	# Typed explicitly: `game` is untyped to avoid a circular class dependency,
 	# so dividing by game.difficulty() makes the whole expression untyped.
 	var storm_m: float = float(game.storm_mult()) if game.storm_active else 1.0
+	if game.storm_active and game.gentle_storm():
+		# Half the storm's EXTRA seaweed: halfway between the storm and calm rate.
+		storm_m = 1.0 / lerpf(1.0, 1.0 / storm_m, Game.GENTLE_STORM)
 	var interval: float = SEAWEED_INTERVAL * storm_m / (float(game.difficulty()) * float(game.spawn_scale()))
 	if _seaweed_t < interval:
 		return

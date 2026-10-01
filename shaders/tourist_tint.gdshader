@@ -1,19 +1,24 @@
 shader_type canvas_item;
 
-// Recolours a tourist's clothes -- the pink shirts and red shorts/bikinis --
-// so one set of sprites gives a crowd in several colours. Rotates the hue of
-// that band only, so the shading and pattern inside the clothes survive.
+// Recolours a tourist's outfit -- like Photoshop's Replace Color with two
+// samples: the pink shirts and the red shorts/swimwear. Matching pixels are
+// turned to one target colour, keeping their shading; nothing else is touched.
+// One set of sprites gives a crowd in several colours.
 //
-// Measured from the sprites: clothes sit at 300-4 deg, skin at 8-30 deg. The
-// drunk tourists' flushed faces fall in the clothes band too, so the top of
-// each frame (the head) is never touched; every frame, walking or wading, has
-// its head in the top third.
+// Selection, measured from the sprites:
+//   * PINK (330): fully recoloured within 15 deg, fading out by 22;
+//   * RED (356): fully within 6 deg, fading out by 10 -- tight, because skin
+//     starts around 8-10 deg;
+//   * red is never taken from the head (top third of the frame): the drunk
+//     tourists' flushed faces are exactly that red;
+//   * dark and near-grey pixels are never touched: the outlines and shadows
+//     round the skin are a dark, saturated red.
+// Both samples land on the same target hue, so the outfit is one colour.
 
-uniform float hue_offset = 0.0;                          // 0..1 turn of the colour wheel
-uniform float hue_lo : hint_range(0.0, 1.0) = 0.833;     // 300 deg
-uniform float hue_hi : hint_range(0.0, 1.0) = 0.011;     // 4 deg (the band wraps past 0)
-uniform float min_sat : hint_range(0.0, 1.0) = 0.35;
-uniform float head_cut : hint_range(0.0, 1.0) = 0.32;
+uniform float target = 330.0;                     // outfit colour, degrees
+uniform float pink = 330.0;
+uniform float red = 356.0;
+uniform float head_cut = 0.32;
 
 vec3 rgb2hsv(vec3 c) {
 	vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
@@ -30,14 +35,26 @@ vec3 hsv2rgb(vec3 c) {
 	return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
 }
 
+float hue_dist(float a, float b) {
+	return abs(mod(a - b + 180.0, 360.0) - 180.0);
+}
+
 void fragment() {
-	vec4 tex = texture(TEXTURE, UV);
-	if (hue_offset != 0.0 && tex.a > 0.0 && UV.y >= head_cut) {
+	// COLOR arrives as the texture already multiplied by the modulate. Sampling
+	// TEXTURE again and multiplying by COLOR would square every channel.
+	vec4 tex = COLOR;
+	if (tex.a > 0.0) {
 		vec3 hsv = rgb2hsv(tex.rgb);
-		if ((hsv.x >= hue_lo || hsv.x <= hue_hi) && hsv.y >= min_sat) {
-			hsv.x = fract(hsv.x + hue_offset);
-			tex.rgb = hsv2rgb(hsv);
+		float h = hsv.x * 360.0;
+		float gate = smoothstep(0.25, 0.4, hsv.y) * smoothstep(0.2, 0.32, hsv.z);
+		float wp = (1.0 - smoothstep(15.0, 22.0, hue_dist(h, pink))) * gate;
+		float wr = (1.0 - smoothstep(6.0, 10.0, hue_dist(h, red))) * gate * step(head_cut, UV.y);
+		float w = max(wp, wr);
+		if (w > 0.0) {
+			float from = wp >= wr ? pink : red;
+			float nh = fract((target + (h - from)) / 360.0);
+			tex.rgb = mix(tex.rgb, hsv2rgb(vec3(nh, hsv.y, hsv.z)), w);
 		}
 	}
-	COLOR = tex * COLOR;
+	COLOR = tex;
 }

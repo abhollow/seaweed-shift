@@ -25,6 +25,12 @@ var turtles: Array = []          # {pos, stuck, done, wig}
 var _t := -1.0                   # seconds into a hatching, < 0 when none
 var _next := 0.0
 var _saved := 0
+var hatched := 0                 # hatchlings in the current hatching
+var _warned := false             # the shoreline seaweed is planted
+const PER_NEST_MIN := 1
+const PER_NEST_MAX := 2
+const PLANT_NESTS := 3           # nests that get seaweed in their way
+const WARN_LEAD := 8.0           # seconds of warning before they hatch
 var _result_t := 0.0
 var _result := ""
 var _anim := 0.0
@@ -50,6 +56,8 @@ func configure(beach: Dictionary) -> void:
 	_t = -1.0
 	_result_t = 0.0
 	_next = first
+	_warned = false
+	hatched = 0
 	_frames.clear()
 	for path in FRAME_PATHS:
 		if ResourceLoader.exists(path):
@@ -63,27 +71,53 @@ func hatching() -> bool:
 func status_text() -> String:
 	if hatching():
 		return "HATCHLINGS! CLEAR THEIR PATH TO THE SEA"
+	if active and _warned and _next > 0.0:
+		return "THE NESTS ARE STIRRING -- CLEAR THE SHORE"
 	if _result_t > 0.0:
 		return _result
 	return ""
 
 
 func start(nest_index: int = -1) -> void:
+	# A hatching: one or two from EVERY nest -- or, given a nest, `count`
+	# from that one alone (the tests use that to aim at a known path).
 	if game == null or game.nests.is_empty():
 		return
-	var i: int = nest_index if nest_index >= 0 else randi() % game.nests.size()
-	var r: Rect2 = game.nests[i]
 	turtles.clear()
-	for k in count:
-		turtles.append({
-			"pos": Vector2(r.position.x + r.size.x * (0.2 + 0.6 * float(k) / float(maxi(count - 1, 1))),
-				r.end.y + randf_range(0.0, 4.0)),
-			"done": false,
-			"wig": randf() * TAU,
-		})
+	var which: Array = [nest_index] if nest_index >= 0 else range(game.nests.size())
+	for i in which:
+		var r: Rect2 = game.nests[i]
+		var n: int = count if nest_index >= 0 else randi_range(PER_NEST_MIN, PER_NEST_MAX)
+		for k in n:
+			turtles.append({
+				"pos": Vector2(r.position.x + r.size.x * (0.2 + 0.6 * float(k) / float(maxi(n - 1, 1))),
+					r.end.y + randf_range(0.0, 4.0)),
+				"done": false,
+				"wig": randf() * TAU,
+				# Each wanders its own way down: a slow sway of its own speed
+				# and size, and a lean to one side.
+				"weave": randf_range(0.7, 1.5),
+				"sway": randf_range(10.0, 18.0),
+				"drift": randf_range(-6.0, 6.0),
+			})
+	hatched = turtles.size()
 	_t = 0.0
 	_saved = 0
+	_warned = false
 	_next = every * randf_range(0.85, 1.15)
+
+
+func _plant_seaweed() -> void:
+	# Just before a hatching, a few clumps wash up on the shoreline right below
+	# the nests -- in the way, on purpose. Left to chance, seaweed was rarely
+	# in their path and the event asked nothing of the player. They drift in
+	# from the shallows rather than appearing on the sand.
+	var idx := range(game.nests.size())
+	idx.shuffle()
+	for i in idx.slice(0, mini(PLANT_NESTS, idx.size())):
+		var r: Rect2 = game.nests[i]
+		var p := Vector2(r.get_center().x + randf_range(-8.0, 8.0), Zones.SHALLOW_TOP + 6.0)
+		game.spawner._add_seaweed(p, randi_range(2, 3), false, true)
 
 
 func blocked(p: Vector2) -> bool:
@@ -104,6 +138,9 @@ func tick(delta: float) -> void:
 	_result_t = maxf(0.0, _result_t - delta)
 	if not hatching():
 		_next -= delta
+		if _next <= WARN_LEAD and not _warned and game != null:
+			_warned = true
+			_plant_seaweed()
 		if _next <= 0.0:
 			start()
 		return
@@ -118,10 +155,16 @@ func tick(delta: float) -> void:
 			continue
 		remaining += 1
 		var p: Vector2 = h["pos"]
-		var step := Vector2(sin(_anim * 5.0 + float(h["wig"])) * 6.0, speed) * delta
+		# Wandering down the beach, not marching in a line.
+		var wander := sin(_anim * float(h["weave"]) + float(h["wig"])) * float(h["sway"]) + float(h["drift"])
+		var step := Vector2(wander, speed) * delta
 		if blocked(p + step * 4.0):
 			continue                      # waits, flippers going, until the way clears
 		p += step
+		# Round any other nest on the way down, never through it.
+		if game != null:
+			p = game.sidestep_nests(p, 0.0)
+		p.x = clampf(p.x, 16.0, Zones.VIEW_W - 16.0)
 		h["pos"] = p
 		if p.y >= Zones.SHALLOW_TOP:
 			h["done"] = true
@@ -136,14 +179,14 @@ func tick(delta: float) -> void:
 
 
 func _finish() -> void:
-	var lost := count - _saved
+	var lost := hatched - _saved
 	if lost > 0 and game != null:
 		game.rep.value = maxf(0.0, game.rep.value - lost_rep * float(lost))
 	if game != null:
 		# The short package chime -- NOT "complete", which is the 15s shift sting.
 		game.sfx("package" if lost == 0 else "warn", 1.0, -6.0)
-	_result = "ALL %d HATCHLINGS MADE IT!" % count if lost == 0 \
-		else "%d OF %d HATCHLINGS MADE IT" % [_saved, count]
+	_result = "ALL %d HATCHLINGS MADE IT!" % hatched if lost == 0 \
+		else "%d OF %d HATCHLINGS MADE IT" % [_saved, hatched]
 	_result_t = 3.0
 	_t = -1.0
 	turtles.clear()

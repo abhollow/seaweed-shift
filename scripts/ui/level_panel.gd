@@ -98,7 +98,7 @@ func show_retain(options: Array) -> void:
 	var kept: int = game.retained.size()
 	_body.text = ("Choose one upgrade to keep for good.\n\n"
 		+ "It carries into every level from now on. Everything else resets, "
-		+ "and the beach gets a little harder.\n\n%d of 10 kept so far.") % kept
+		+ "and the beach gets a little harder.\n\n%d of %d kept so far.") % [kept, Upgrades.keepable_count()]
 
 	for c in _choices.get_children():
 		_choices.remove_child(c)

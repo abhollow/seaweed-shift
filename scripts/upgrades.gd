@@ -75,6 +75,18 @@ const LIST := [
 		"needs": "",
 	},
 	{
+		# A hire, not gear: it is NOT kept between levels (see "keep"), so
+		# the ten-upgrade retention arc -- one kept per level, ten levels --
+		# is untouched.
+		"id": "seagull",
+		"tier": 2,
+		"name": "Pet Seagull",
+		"cost": 600,
+		"desc": "Flies rotting seaweed to the skip. No pay, just reputation.",
+		"needs": "",
+		"keep": false,
+	},
+	{
 		"id": "tractor",
 		"tier": 2,
 		"name": "Tractor",
@@ -123,3 +135,15 @@ const LIST := [
 		"needs": "hopper",
 	},
 ]
+
+
+static func keepable(up: Dictionary) -> bool:
+	return bool(up.get("keep", true))
+
+
+static func keepable_count() -> int:
+	var n := 0
+	for up in LIST:
+		if keepable(up):
+			n += 1
+	return n

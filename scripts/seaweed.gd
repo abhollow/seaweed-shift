@@ -33,6 +33,8 @@ var units := 1
 var kelp := false
 var drifting := false
 var drift_speed := 2.4           # px/sec
+# In a gentle storm (game.gentle_storm) only these clumps ride the surge in.
+var storm_rider := true
 var shore_y := 394.0
 var game
 
@@ -118,6 +120,7 @@ func setup(pos: Vector2, u: int, g, is_kelp: bool = false, drifts: bool = false)
 	drifting = drifts and not is_kelp
 	game = g
 	drift_speed = randf_range(1.9, 3.1)
+	storm_rider = randf() < Game.GENTLE_STORM
 	_sway = randf() * TAU
 
 
@@ -375,7 +378,8 @@ func _do_drift(delta: float) -> void:
 	# (wash 1.0) keeps its full 2.5x.
 	var wash: float = float(game.wash_speed()) if game != null else 1.0
 	var mult := 1.0
-	if game != null and game.storm_active and not (game.hurricane != null and game.hurricane.active):
+	if game != null and game.storm_active and not (game.hurricane != null and game.hurricane.active) \
+			and (storm_rider or not game.gentle_storm()):
 		mult = maxf(1.0, minf(STORM_DRIFT, STORM_DRIFT_MAX / wash))
 	# A hurricane does not add the storm surge: it brings its own surf, which
 	# already carries the raft ashore. Both together emptied the whole water onto
@@ -419,6 +423,12 @@ func _settle() -> void:
 func _do_gather(delta: float) -> void:
 	if _player == null:
 		return
+	# Not while knocked down. A dropped load lands within rake reach, so a
+	# stunned worker standing still raked most of it straight back up and the
+	# hit cost nothing.
+	if _player._stun > 0.0 or _player.tumbling():
+		_timer = 0.0
+		return
 	# Nothing can be gathered from under a flock of flamingos (Holbox).
 	if game != null and game.holbox != null and game.holbox.blocks(position):
 		return
@@ -443,12 +453,12 @@ func _do_gather(delta: float) -> void:
 		var pitch := 1.0 + 0.035 * float(MAX_PILE - units)
 		if kelp:
 			pitch += 0.12
-			game.popup("+1 kelp", global_position, Color(0.4, 0.95, 0.85))
+			game.popup("+1 kelp", global_position, Color(0.4, 0.95, 0.85), true)
 		elif is_rotten():
 			pitch = 0.85
-			game.popup("+1 rot", global_position, Color(0.70, 0.58, 0.36))
+			game.popup("+1 rot", global_position, Color(0.70, 0.58, 0.36), true)
 		else:
-			game.popup("+1", global_position, Color(0.55, 0.95, 0.55))
+			game.popup("+1", global_position, Color(0.55, 0.95, 0.55), true)
 		game.sfx("pickup", pitch, -1.0)
 		if _player.is_full():
 			game.sfx("full")
