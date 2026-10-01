@@ -138,18 +138,11 @@ func start(kind: String) -> void:
 		"whale":
 			_len = whale_len
 			angle = _visible_side()
-			# A crowd streams out toward it -- down the street facing it where
-			# the island has a village, staggered so they arrive as a line.
+			# A crowd rushes out toward it from the edge of town facing it.
 			if game != null:
 				for i in whale_crowd:
-					var start: Vector2
-					if Zones.STREETS > 0:
-						var ax := Zones.street_axis(Zones.nearest_street(Zones.CENTER + Vector2(cos(angle), sin(angle))))
-						start = Zones.CENTER + ax * (Zones.TOURIST_SPAWN_Y + float(i) * 12.0)
-					else:
-						var a := angle + randf_range(-0.35, 0.35)
-						start = Zones.CENTER + Vector2(cos(a), sin(a)) * Zones.TOURIST_SPAWN_Y
-					game.spawner.make_tourist(start,
+					var a := angle + randf_range(-0.35, 0.35)
+					game.spawner.make_tourist(Zones.CENTER + Vector2(cos(a), sin(a)) * Zones.TOURIST_SPAWN_Y,
 						randf_range(Zones.SHORE_Y + 8.0, Zones.DEEP_TOP - 10.0), false)
 				game.sfx("package", 0.8, -4.0)
 		"sandbar":
@@ -221,9 +214,30 @@ func _bar_axes() -> Array:
 	return [d, Vector2(-d.y, d.x)]
 
 
+# The bar surfaces in sections, from the beach outward, one after another, and
+# sinks back the same way, tip first.
+const BAR_CHUNKS := 7
+
+
+func _bar_root() -> float:
+	return Zones.SHORE_Y - 10.0
+
+
+func _chunk_up(i: int) -> float:
+	# 0..1: how far section i has surfaced. Overlapping ramps, so each section
+	# starts rising a beat after the one before it.
+	return clampf(presence() * float(BAR_CHUNKS + 1) - float(i), 0.0, 1.0)
+
+
 func _bar_end() -> float:
-	# The bar grows out of the beach as the tide drops, and shrinks back in.
-	return lerpf(Zones.SHALLOW_TOP, Zones.DEEP_TOP + bar_length, presence())
+	# Walkable out to the last section that is more than half up.
+	var full := Zones.DEEP_TOP + bar_length
+	var up := 0
+	for i in BAR_CHUNKS:
+		if _chunk_up(i) >= 0.5:
+			up = i + 1
+	return maxf(Zones.SHALLOW_TOP, lerpf(_bar_root(), full, float(up) / float(BAR_CHUNKS)))
+
 
 
 func on_sandbar(p: Vector2) -> bool:
@@ -299,27 +313,41 @@ func _draw_sandbar(c: CanvasItem) -> void:
 	var ax := _bar_axes()
 	var d: Vector2 = ax[0]
 	var perp: Vector2 = ax[1]
-	var r0 := Zones.SHORE_Y - 10.0
-	var r1 := _bar_end()
-	if r1 <= r0 + 2.0:
-		return
+	var r0 := _bar_root()
+	var full := Zones.DEEP_TOP + bar_length
+	var step := (full - r0) / float(BAR_CHUNKS)
 	var w := sandbar_width * 0.5
-	var poly := PackedVector2Array([
-		Zones.CENTER + d * r0 + perp * w, Zones.CENTER + d * r1 + perp * w * 0.75,
-		Zones.CENTER + d * (r1 + 8.0), Zones.CENTER + d * r1 - perp * w * 0.75,
-		Zones.CENTER + d * r0 - perp * w])
-	var a := presence()
-	c.draw_colored_polygon(poly, Color(0.87, 0.80, 0.62, a))
-	# a wet, darker band down the middle, and foam along both edges
-	c.draw_line(Zones.CENTER + d * r0, Zones.CENTER + d * r1, Color(0.74, 0.66, 0.50, 0.6 * a), w * 0.6)
-	for side in [-1.0, 1.0]:
-		var pts := PackedVector2Array()
-		var s := r0
-		while s <= r1:
-			var k := 1.0 - (s - r0) / maxf(r1 - r0, 1.0) * 0.25
-			pts.append(Zones.CENTER + d * s + perp * (w * k + 2.0 + sin(s * 0.3 + _anim * 3.0) * 1.2) * side)
-			s += 4.0
-		c.draw_polyline(pts, Color(1, 1, 1, 0.75 * a), 2.0)
+	for i in BAR_CHUNKS:
+		var up := _chunk_up(i)
+		if up <= 0.0:
+			continue
+		var ra := r0 + step * float(i)
+		var rb := ra + step + 1.0          # a hair of overlap, no seams
+		# Tapers toward the tip, and swells from narrow to full as it surfaces.
+		var rise := up * up * (3.0 - 2.0 * up)
+		var ka := (1.0 - 0.25 * float(i) / float(BAR_CHUNKS)) * w * (0.45 + 0.55 * rise)
+		var kb := (1.0 - 0.25 * float(i + 1) / float(BAR_CHUNKS)) * w * (0.45 + 0.55 * rise)
+		var pa := Zones.CENTER + d * ra
+		var pb := Zones.CENTER + d * rb
+		var poly := PackedVector2Array([pa + perp * ka, pb + perp * kb, pb - perp * kb, pa - perp * ka])
+		if i == BAR_CHUNKS - 1:
+			poly = PackedVector2Array([pa + perp * ka, pb + perp * kb * 0.75, pb + d * 8.0, pb - perp * kb * 0.75, pa - perp * ka])
+		c.draw_colored_polygon(poly, Color(0.87, 0.80, 0.62, up))
+		# a wet, darker band down the middle
+		c.draw_line(pa, pb, Color(0.74, 0.66, 0.50, 0.6 * up), ka * 0.6)
+		# foam along both edges
+		for side in [-1.0, 1.0]:
+			var pts := PackedVector2Array()
+			var s := ra
+			while s <= rb:
+				var t := (s - ra) / maxf(rb - ra, 1.0)
+				pts.append(Zones.CENTER + d * s + perp * (lerpf(ka, kb, t) + 2.0 + sin(s * 0.3 + _anim * 3.0) * 1.2) * side)
+				s += 4.0
+			c.draw_polyline(pts, Color(1, 1, 1, 0.75 * up), 2.0)
+		# a burst of white water as each section breaks the surface
+		if up < 1.0:
+			var splash := sin(up * PI)
+			c.draw_circle((pa + pb) * 0.5, (ka + 6.0) * (0.6 + 0.6 * up), Color(1, 1, 1, 0.45 * splash), false, 2.0)
 
 
 func _draw_whale(c: CanvasItem) -> void:

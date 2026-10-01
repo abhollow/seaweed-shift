@@ -59,7 +59,7 @@ func configure(beach: Dictionary) -> void:
 func progress() -> float:
 	if game == null:
 		return 0.0
-	var goal := maxf(1.0, float(game.current_level().get("credits", 1500)))
+	var goal := maxf(1.0, float(game.shift_target()))
 	return clampf(float(game.credits_earned) / goal, 0.0, 1.0)
 
 

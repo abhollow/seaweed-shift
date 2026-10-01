@@ -9,6 +9,7 @@ export/
 *.apk
 *.aab
 *.ipa
+*.idsig
 
 # Python bytecode from the art pipeline
 __pycache__/

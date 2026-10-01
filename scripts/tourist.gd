@@ -71,6 +71,13 @@ var target_y := 450.0
 var despawn_y := 150.0
 var rowdy := false
 var female := false
+# Clothes colour in degrees, set by the spawner before _ready. 330 is the
+# pink the sprites are drawn in.
+var clothes_hue := 330.0
+const TINT_SHADER := preload("res://shaders/tourist_tint.gdshader")
+static var _tints := {}
+const FADE := 0.35
+var _leaving := false
 
 var _state: int = State.DESCEND
 var _out := Vector2(0, 1)
@@ -136,8 +143,15 @@ func _ready() -> void:
 		# differ per character and per pose (a raised cocktail is wider than a
 		# swinging arm), so deriving scale from one art size would squash them.
 		_sprite.scale = Vector2(2, 2)
+		_sprite.material = _tint_for(clothes_hue)
 
 	body_entered.connect(_on_body_entered)
+
+	# Round an island tourists appear on the open beach at the edge of town,
+	# so they fade in rather than pop.
+	if Zones.RADIAL:
+		modulate.a = 0.0
+		create_tween().tween_property(self, "modulate:a", 1.0, FADE)
 
 
 func _face(lateral: float) -> void:
@@ -207,6 +221,8 @@ func _tick_walk(delta: float) -> void:
 
 
 func _process(delta: float) -> void:
+	if _leaving:
+		return
 	_phase += delta * 3.5
 	_tick_walk(delta)
 
@@ -247,7 +263,7 @@ func _process(delta: float) -> void:
 		State.ASCEND:
 			position += -_out * (speed * (0.9 if rowdy else 1.15) * fwd * delta) + _perp * (lateral * 0.8 * delta)
 			if Zones.depth(position) < despawn_y:
-				queue_free()
+				_leave()
 
 	_tick_gust(delta)
 	_tick_stream(delta)
@@ -286,3 +302,28 @@ func _tick_gust(delta: float) -> void:
 func _on_body_entered(body: Node2D) -> void:
 	if body is Player:
 		(body as Player).get_hit()
+
+
+static func _tint_for(hue: float) -> ShaderMaterial:
+	# One material per colour, shared by every tourist wearing it.
+	if not _tints.has(hue):
+		var m := ShaderMaterial.new()
+		m.shader = TINT_SHADER
+		m.set_shader_parameter("hue_offset", fposmod(hue - 330.0, 360.0) / 360.0)
+		_tints[hue] = m
+	return _tints[hue]
+
+
+func _leave() -> void:
+	# Back where they came from. Round an island that is open beach, so they
+	# stop and fade out there instead of vanishing.
+	if not Zones.RADIAL:
+		queue_free()
+		return
+	if _leaving:
+		return
+	_leaving = true
+	set_deferred("monitoring", false)
+	var tw := create_tween()
+	tw.tween_property(self, "modulate:a", 0.0, FADE)
+	tw.tween_callback(queue_free)

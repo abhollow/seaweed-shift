@@ -11,6 +11,7 @@ extends RefCounted
 const LIST := {
 	1: {
 		"name": "Cancun",
+		"tourists": "pink",  # most of the crowd wears this; see Spawner.TOURIST_COLOURS
 		"tagline": "Your first shift at the resort. Keep the beach clean and the guests happy.",
 		"background": "res://assets/sprites/background_level1.png",
 		"water": "res://assets/sprites/water_%02d.png",
@@ -21,6 +22,7 @@ const LIST := {
 		# the wind is the ONE new thing, so the player learns a rule rather than
 		# a new beach and a rule at once.
 		"name": "Veracruz",
+		"tourists": "blue",  # most of the crowd wears this; see Spawner.TOURIST_COLOURS
 		# No storms on foot here: the wind already makes walking hard, and a
 		# storm's seaweed surge on top of it was more than anyone could clear.
 		"storms_need": "tractor",
@@ -63,6 +65,7 @@ const LIST := {
 	},
 	3: {
 		"name": "Playa del Carmen",
+		"tourists": "purple",  # most of the crowd wears this; see Spawner.TOURIST_COLOURS
 		"tagline": "The bay is on the left. Keep the VIP frontage spotless -- and watch for the Cozumel ferry.",
 		# The beach club's frontage, from its daybeds down to the water, on the
 		# RIGHT -- the far side from the skip. Seaweed there costs triple.
@@ -99,6 +102,7 @@ const LIST := {
 	},
 	4: {
 		"name": "Cozumel",
+		"tourists": "aqua",  # most of the crowd wears this; see Spawner.TOURIST_COLOURS
 		"tagline": "The night shift. Work by lantern light -- and watch for the moon.",
 		"music": [
 			"res://audio/Island_Night_Drive_1.mp3",
@@ -133,6 +137,7 @@ const LIST := {
 	},
 	5: {
 		"name": "Bacalar",
+		"tourists": "green",  # most of the crowd wears this; see Spawner.TOURIST_COLOURS
 		"tagline": "Count the small waves -- then get out before the big one knocks you back to shore.",
 		"music": [
 			"res://audio/Tidal_Rush_1.mp3",
@@ -177,6 +182,7 @@ const LIST := {
 		# difficulty: storms and Happy Hour are switched off, and three
 		# signature events take their place.
 		"name": "Isla Holbox",
+		"tourists": "red",  # most of the crowd wears this; see Spawner.TOURIST_COLOURS
 		"tagline": "A tiny round island. The skip is in the middle -- take any street in. Watch for whale sharks, low tide and flamingos.",
 		"background": "res://assets/sprites/background_level6.png",
 		"water": "",
@@ -198,8 +204,11 @@ const LIST := {
 			"shallow_top": 155.0,
 			"deep_top": 208.0,
 			"water_top": 155.0,
-			"tourist_spawn_y": 34.0,
-			"tourist_despawn_y": 34.0,
+			# Tourists appear on the edge of town and fade in there, rather than
+			# walking out of the plaza: the streets are narrower than the tractor,
+			# and they are the only way to the skip.
+			"tourist_spawn_y": 126.0,
+			"tourist_despawn_y": 126.0,
 			"bay_pos": Vector2(180, 320),
 			"bay_size": Vector2(52, 52),
 			"streets": 8,
@@ -223,6 +232,7 @@ const LIST := {
 	},
 	7: {
 		"name": "Puerto Morelos",
+		"tourists": "blue",  # most of the crowd wears this; see Spawner.TOURIST_COLOURS
 		"tagline": "A stream runs across the beach. Wade it and it carries you -- and the tourists -- out to sea.",
 		# Unassigned since level 2 became Veracruz; a sunny fishing town suits them.
 		"music": [
@@ -262,6 +272,7 @@ const LIST := {
 	},
 	8: {
 		"name": "Mahahual",
+		"tourists": "purple",  # most of the crowd wears this; see Spawner.TOURIST_COLOURS
 		"tagline": "Sargassum season. Golden weed is heavy and rots fast -- and watch for the mat coming in.",
 		"music": [
 			"res://audio/Tense_Beach_Game_1.mp3",
@@ -293,6 +304,7 @@ const LIST := {
 	},
 	9: {
 		"name": "Akumal",
+		"tourists": "aqua",  # most of the crowd wears this; see Spawner.TOURIST_COLOURS
 		"tagline": "The bay of turtles. Work around the nests -- and when they hatch, clear the way to the sea.",
 		# Turtle-nest enclosures, measured from the art: solid for the worker
 		# and tourists, and seaweed never lands inside. [x0, y0, x1, y1]
@@ -321,6 +333,7 @@ const LIST := {
 	},
 	10: {
 		"name": "Tulum",
+		"tourists": "pink",  # most of the crowd wears this; see Spawner.TOURIST_COLOURS
 		"tagline": "The finale. A hurricane is coming -- and when the eye passes, the wind turns.",
 		# The hurricane conducts the wind, the storm and the surf through the
 		# shift; random storms and Happy Hour are off so nothing competes.
@@ -350,7 +363,10 @@ const LIST := {
 			"knock": 110.0,
 			"rogue_every": 3,
 			"runup": 55.0,
-			"share": [0.2, 0.3, 0.6, 0.8],
+			# Lower than Bacalar's from shift 3: here the surf runs through a held
+			# storm and a gale, and at 60/80% the bot lost every late Tulum shift
+			# within 30s of the front arriving.
+			"share": [0.2, 0.3, 0.4, 0.5],
 		},
 		"background": "res://assets/sprites/background_level10.png",
 		"water": "res://assets/sprites/water10_%02d.png",

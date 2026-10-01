@@ -41,7 +41,7 @@ func reset(new_target: float) -> void:
 func tick(delta: float) -> void:
 	# Floor is 0, not 1: the meter has to be able to bottom out for the shift to
 	# be failable.
-	var goal := clampf(100.0 - shore_mess() * (100.0 / MESS_FULL), 0.0, 100.0)
+	var goal := clampf(100.0 - shore_mess() * (100.0 / game.mess_full()), 0.0, 100.0)
 
 	# Eased rather than snapped, and asymmetric: reputation falls faster than it
 	# recovers, so letting the beach go is cheap and digging out of it is not.

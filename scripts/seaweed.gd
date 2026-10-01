@@ -23,6 +23,10 @@ const ROT_SPREAD_RATE := 1.6
 
 # Share of the wind that moves floating seaweed sideways.
 const WIND_DRIFT := 0.25
+
+# Storm drift boost, and the most a storm plus the shift's wash may add up to.
+const STORM_DRIFT := 2.5
+const STORM_DRIFT_MAX := 3.5
 const ROT_COLOR := Color(0.45, 0.33, 0.14)
 
 var units := 1
@@ -361,10 +365,23 @@ func _process(delta: float) -> void:
 func _do_drift(delta: float) -> void:
 	# Storms shove the whole raft in much faster -- that surge is what makes a
 	# storm read as an incoming wall of work rather than just a colour change.
-	var mult: float = 2.5 if (game != null and game.storm_active) else 1.0
+	#
+	# The storm boost and the later shifts' faster wash used to multiply: by
+	# shift 4 a storm moved the raft at 5x the calm shift-1 speed and up to 7x on
+	# level 10, landing everything afloat in 10-15s while it rotted at nearly
+	# double speed. Bot playtest: shifts 3-4 were lost at the end of the first
+	# storm on almost every attempt. The combined speed is now capped, so a
+	# storm still surges, just over the storm rather than in one beat. Shift 1
+	# (wash 1.0) keeps its full 2.5x.
+	var wash: float = float(game.wash_speed()) if game != null else 1.0
+	var mult := 1.0
+	if game != null and game.storm_active and not (game.hurricane != null and game.hurricane.active):
+		mult = maxf(1.0, minf(STORM_DRIFT, STORM_DRIFT_MAX / wash))
+	# A hurricane does not add the storm surge: it brings its own surf, which
+	# already carries the raft ashore. Both together emptied the whole water onto
+	# the sand within seconds of the front arriving.
 	_sway += delta * 0.9
 
-	var wash: float = float(game.wash_speed()) if game != null else 1.0
 	# Toward the shore -- straight up the screen, or in toward a round island.
 	position -= Zones.outward(position) * (drift_speed * mult * wash * delta)
 	position.x += sin(_sway) * 5.0 * delta

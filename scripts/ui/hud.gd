@@ -263,7 +263,7 @@ func refresh() -> void:
 		_goal_fill.visible = false
 	else:
 		var lv: Dictionary = game.current_level()
-		var need: int = int(lv["credits"])
+		var need: int = game.shift_target()
 		var earned: int = game.credits_earned
 
 		_lbl_shift.text = "L%d  S%d/%d  %d/%d cr" % [

@@ -15,6 +15,7 @@ const PACKAGE_SCENE := preload("res://scenes/package.tscn")
 # --- tuning -----------------------------------------------------------------
 const SEAWEED_INTERVAL := 1.05
 const SEAWEED_MAX := 34
+const UNIT_CAP := 1.25          # units allowed per clump of cap, see _tick_seaweed
 const KELP_INTERVAL := 3.0
 const KELP_MAX := 7
 const TOURIST_INTERVAL_MIN := 2.5
@@ -82,7 +83,19 @@ func _tick_seaweed(delta: float) -> void:
 	if _seaweed_t < interval:
 		return
 	_seaweed_t = 0.0
-	if count_seaweed(false) >= int(game.seaweed_cap()):
+	# The cap counts clumps, but a storm clump carries storm_burst units (2-3
+	# from shift 2), so a storm used to fill the same clump cap with up to three
+	# times the seaweed -- 40 to 117 units beaching at once, far past the firing
+	# line. A second cap on UNITS bounds the surge; outside storms clumps are
+	# single units and it rarely binds.
+	#
+	# Adaptive difficulty eases the cap too, not just the spawn rate: once the
+	# beach is at its cap a slower spawn rate changes nothing, so a failed shift
+	# was retried at exactly the same pressure. Only easing -- a clean run speeds
+	# spawning up but never raises the cap. A beach's own spawn_scale (Holbox)
+	# applies here too, for the same reason.
+	var cap := int(float(game.seaweed_cap()) * float(game.cap_scale()))
+	if count_seaweed(false) >= cap or count_units(false) >= int(float(cap) * UNIT_CAP):
 		return
 	spawn_seaweed(int(game.storm_burst()) if game.storm_active else 1)
 
@@ -170,6 +183,14 @@ func _add_seaweed(pos: Vector2, units: int, kelp: bool, drifts: bool) -> Seaweed
 	return s
 
 
+func count_units(is_kelp: bool) -> int:
+	var n := 0
+	for c in game.world.get_children():
+		if c is Seaweed and (c as Seaweed).kelp == is_kelp:
+			n += (c as Seaweed).units
+	return n
+
+
 func count_seaweed(is_kelp: bool) -> int:
 	var n := 0
 	for c in game.world.get_children():
@@ -215,7 +236,7 @@ func _tick_tourists(delta: float) -> void:
 	_tourist_t = 0.0
 
 	var cap: int = MAX_TOURISTS_HAPPY if game.happy_hour \
-		else int(MAX_TOURISTS * float(game.difficulty()))
+		else int(MAX_TOURISTS * tourist_pressure())
 	if count_tourists() >= cap:
 		_tourist_next = 0.6
 		return
@@ -230,7 +251,7 @@ func _tick_tourists(delta: float) -> void:
 		# Splash target reaches up to the shoreline, so tourists park themselves
 		# right on top of the pile you most want to be working.
 		_tourist_next = float(randf_range(TOURIST_INTERVAL_MIN, TOURIST_INTERVAL_MAX)) \
-			/ float(game.difficulty())
+			/ tourist_pressure()
 		# No deep swimmers round an island: most of its deep water is off
 		# the sides of the screen, and Holbox is not meant to be hard.
 		if randf() < DEEP_SWIMMER_CHANCE and not Zones.RADIAL:
@@ -243,8 +264,8 @@ func _tick_tourists(delta: float) -> void:
 	# an island they walk out from the compound in any direction.
 	var start: Vector2
 	if Zones.RADIAL:
-		# Out of the village along a street, or from the compound's edge.
-		var a := Zones.street_angle(randi() % Zones.STREETS) if Zones.STREETS > 0 else randf() * TAU
+		# Anywhere on the edge of town, facing the beach.
+		var a := randf() * TAU
 		start = Zones.CENTER + Vector2(cos(a), sin(a)) * Zones.TOURIST_SPAWN_Y
 	else:
 		var hi := 330.0 - (70.0 if (game.wind != null and game.wind.active()) else 0.0)
@@ -252,15 +273,50 @@ func _tick_tourists(delta: float) -> void:
 	make_tourist(start, target, game.happy_hour)
 
 
+# Up to this much difficulty the crowd follows the curve exactly -- the whole
+# of level 1 shift 1 sits below it, so its calibrated feel is untouched.
+const TOURIST_FULL_UNTIL := 1.75
+
+
+func tourist_pressure() -> float:
+	# The crowd grows with difficulty, but past shift 1 only with its square
+	# root. Linear, level 10's last shift had a new tourist every 0.3-0.6s and
+	# 15+ on the sand at once -- with the player driving the biggest hitbox in
+	# the game and a hit costing the whole hopper. Bot playtest: collisions were
+	# what ended almost every late shift. Now ~4x shift 1's rate at the very end
+	# of the campaign rather than ~9x.
+	var d := float(game.difficulty())
+	if d <= TOURIST_FULL_UNTIL:
+		return d
+	return TOURIST_FULL_UNTIL * sqrt(d / TOURIST_FULL_UNTIL)
+
+
+# Tourist clothes, in degrees of hue: the sprites are drawn in pink (330) and
+# the tint shader turns the clothes to any of these. Each beach names its main
+# colour ("tourists" in beaches.gd); most of the crowd wears it and the rest is
+# a random mix of the others. Yellow and orange are left out on purpose -- they
+# sit next to the skin tones and the tourists read as naked.
+const TOURIST_COLOURS := {
+	"pink": 330.0, "blue": 222.0, "aqua": 186.0, "green": 135.0, "purple": 272.0, "red": 355.0,
+}
+const TOURIST_MAIN_SHARE := 0.65
+
+
+func clothes_hue() -> float:
+	var main := String(Beaches.for_level(game.level).get("tourists", "pink"))
+	if randf() < TOURIST_MAIN_SHARE and TOURIST_COLOURS.has(main):
+		return TOURIST_COLOURS[main]
+	var others := TOURIST_COLOURS.keys()
+	others.erase(main)
+	return TOURIST_COLOURS[others.pick_random()]
+
+
 func make_tourist(start: Vector2, target: float, rowdy: bool) -> Tourist:
 	# Straight coin flip on sex, during Happy Hour as well as ordinary trickle.
 	var t: Tourist = TOURIST_SCENE.instantiate()
 	t.game = game
 	t.setup(start, target, rowdy, Zones.TOURIST_DESPAWN_Y, randf() < 0.5)
-	# Round an island they walk out along narrow streets -- a wide weave would
-	# carry them through the houses.
-	if Zones.RADIAL:
-		t.weave *= 0.3
+	t.clothes_hue = clothes_hue()
 	game.world.add_child(t)
 	return t
 

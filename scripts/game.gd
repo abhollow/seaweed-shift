@@ -584,7 +584,7 @@ func difficulty() -> float:
 	# Tying the ramp to credits earned means the pressure tracks the player's
 	# own output -- buy a tractor and earn faster, and the beach fills faster to
 	# match. It self-balances against whatever gear they have.
-	var goal := maxf(1.0, float(current_level().get("credits", 1500)))
+	var goal := maxf(1.0, float(shift_target()))
 	var progress := clampf(float(credits_earned) / goal, 0.0, 1.0)
 	return shift_difficulty() * lerpf(1.0, SHIFT_RAMP, progress)
 
@@ -617,6 +617,15 @@ func seaweed_cap() -> int:
 	return int(Spawner.SEAWEED_MAX + CAP_PER_DIFFICULTY * (shift_difficulty() - 1.0))
 
 
+func mess_full() -> float:
+	# How much shoreline mess drags reputation to zero. It grows with the
+	# seaweed cap: at a fixed 28 units, later shifts allowed 45-65 clumps on the
+	# beach while still firing you at 28 -- the beach's own capacity was past
+	# the firing line before the player did anything wrong. Shift 1 of level 1
+	# (cap 34) is unchanged.
+	return Reputation.MESS_FULL * float(seaweed_cap()) / float(Spawner.SEAWEED_MAX)
+
+
 func spawn_scale() -> float:
 	# A level can arrive with less seaweed, across all its shifts. Holbox uses
 	# it: collecting from all 360 degrees of an island is more walking than
@@ -624,6 +633,15 @@ func spawn_scale() -> float:
 	# that sits the adaptive multiplier, which follows the player.
 	var h := hurricane.spawn_factor() if hurricane != null else 1.0
 	return maxf(0.1, float(Beaches.for_level(level).get("spawn_scale", 1.0))) * adapt * h
+
+
+func cap_scale() -> float:
+	# How far below seaweed_cap() the spawner stops: the beach's own scale and
+	# the adaptive easing. Neither can RAISE the cap. Once a shift is busy the
+	# beach sits at its cap, so a factor applied only to the spawn rate (as
+	# both were) changed nothing exactly when it mattered.
+	var beach := minf(1.0, float(Beaches.for_level(level).get("spawn_scale", 1.0)))
+	return maxf(0.1, beach * minf(adapt, 1.0))
 
 
 func in_nest(p: Vector2, pad: float = 0.0) -> bool:
@@ -675,12 +693,26 @@ func adapt_after_finish() -> void:
 	shift_fails = 0           # the next shift is a fresh start
 
 
+# A hurricane's storm runs for most of the shift, not 22 seconds, so it uses
+# shift 1's storm spawning (the mildest) on every shift. Its wind, rain, surf
+# and darkness are the pressure. At each shift's own storm rate -- tuned for a
+# short burst -- the bot lost every Tulum shift after the first.
+const HURRICANE_STORM_MULT := 0.70
+const HURRICANE_STORM_BURST := 1
+
+
 func storm_mult() -> float:
-	return maxf(0.2, float(current_level().get("storm_mult", 0.35)))
+	var m := maxf(0.2, float(current_level().get("storm_mult", 0.35)))
+	if hurricane != null and hurricane.active:
+		m = maxf(m, HURRICANE_STORM_MULT)
+	return m
 
 
 func storm_burst() -> int:
-	return maxi(1, int(current_level().get("storm_burst", 3)))
+	var b := maxi(1, int(current_level().get("storm_burst", 3)))
+	if hurricane != null and hurricane.active:
+		b = mini(b, HURRICANE_STORM_BURST)
+	return b
 
 
 func rot_scale() -> float:
@@ -729,6 +761,31 @@ func retain_options() -> Array:
 			continue
 		out.append(id)
 	return out
+
+
+# Kept gear makes the early shifts of later levels go by fast: with the tractor
+# and the Baling Sorter retained, shift 1 of levels 7-10 lasted ~2 minutes in
+# the bot playtest against ~5 in levels 1-5. Each retained upgrade that the
+# shift's own shop would not normally have given you yet raises the target, so
+# shifts stay near five minutes. Factors per shift 1-4; shifts 3-4 are played
+# with the full kit whatever you kept, so they are unaffected.
+#   sorter:  doubles pay, so shift 1 needs double; in shift 2 it saves the
+#            1200 it would have cost and pays double from the start.
+#   tractor: capacity 20 and more speed on what is otherwise an on-foot shift.
+const RETAINED_TARGET := {
+	"tractor": [1.25, 1.0, 1.0, 1.0],
+	"sorter": [2.0, 1.3, 1.0, 1.0],
+}
+
+
+func shift_target() -> int:
+	var t := float(current_level().get("credits", 1500))
+	var i: int = mini(level_index, Levels.LIST.size() - 1)
+	for id in RETAINED_TARGET:
+		if retained.has(id):
+			t *= float(RETAINED_TARGET[id][i])
+	# Round to 50 so the HUD target reads as a deliberate number.
+	return int(round(t / 50.0)) * 50
 
 
 func current_level() -> Dictionary:
@@ -861,8 +918,7 @@ func _check_level_complete() -> void:
 	# and not end, for reasons the player couldn't see. Reputation still
 	# matters -- hit zero and you're fired, and a clean beach earns a bigger
 	# resort bonus -- and the firing countdown is visible, tense and fair.
-	var lv := current_level()
-	if credits_earned < int(lv["credits"]):
+	if credits_earned < shift_target():
 		return
 	finish_level()
 
@@ -876,9 +932,8 @@ func reputation_bonus() -> int:
 	# the meter fell: never slipping pays the full bonus, bottoming out pays
 	# nothing. Framed as a reward on top rather than a cut to what you keep --
 	# the goal is to make playing well feel good, not playing badly feel bad.
-	var lv := current_level()
 	var quality := clampf(best_rep / 100.0, 0.0, 1.0)
-	return int(round(float(lv.get("credits", 0)) * REP_BONUS_MAX * quality))
+	return int(round(float(shift_target()) * REP_BONUS_MAX * quality))
 
 
 func finish_level() -> void:
@@ -1483,6 +1538,10 @@ func _on_bay_exited(body: Node2D) -> void:
 		(body as Player).in_safe_zone = false
 
 
+# Most of a load a collision can put back on the sand. Two big piles.
+const SPILL_MAX := 16
+
+
 func on_player_hit(lost_units: int, lost_value: int, at: Vector2) -> void:
 	if lost_units <= 0:
 		sfx("hit", 1.25, -6.0)
@@ -1495,7 +1554,16 @@ func on_player_hit(lost_units: int, lost_value: int, at: Vector2) -> void:
 	# on reputation could skim the shoreline, take a hit, and wipe their carry
 	# off the mess total at no cost. Now the seaweed is still there and still
 	# counts -- what a hit costs you is the work of picking it all up again.
-	spawner.scatter(lost_units, at)
+	#
+	# Only up to SPILL_MAX lands back, though; the rest of the load (and its
+	# pay) is simply lost. With the 100-unit hopper a full spill was more than
+	# the whole firing line on its own -- in bot playtests one collision ended
+	# almost every late shift, whatever happened before it. The whole load is
+	# still gone, so a hit costs as much as ever; it just can't fire you alone.
+	# Deferred: a hit arrives inside a physics callback (the tourist's
+	# body_entered), where adding new Area2D piles is refused by the physics
+	# server -- the dropped seaweed came out with dead collision shapes.
+	spawner.scatter.call_deferred(mini(lost_units, SPILL_MAX), at)
 	popup("LOAD DROPPED", at, Color(1.0, 0.42, 0.42))
 	shake(7.0, 0.34)
 

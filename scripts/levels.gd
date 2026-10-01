@@ -83,7 +83,10 @@ const LIST := [
 		"name": "SHIFT 4  --  Peak Season",
 		"credits": 14000,
 		"rep": 80.0,
-		"difficulty": 3.3,
+		# 3.3 at first: the biggest step on the curve, on the shift meant to be
+		# the reward. Bot playtest lost it on 10 of 10 beaches; at 2.9 (still
+		# above shift 3) it is cleared on 8 of 10.
+		"difficulty": 2.9,
 		"rot_scale": 0.58,
 		"storm_mult": 0.33,
 		"storm_burst": 3,
