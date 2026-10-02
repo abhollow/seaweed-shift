@@ -140,6 +140,11 @@ func lights() -> PackedVector3Array:
 	if game.player != null:
 		out.append(Vector3(game.player.position.x, game.player.position.y, player_radius()))
 	out.append(Vector3(Zones.BAY_POS.x, Zones.BAY_POS.y + 10.0, bay_light))
+	# Level lights that matter more than a phone: divers' torches, glowing weed.
+	if game.cozumel != null:
+		for L in game.cozumel.lights():
+			if out.size() < MAX_LIGHTS:
+				out.append(L)
 	for L in fixed:
 		out.append(Vector3(float(L[0]), float(L[1]), float(L[2])))
 	for c in game.world.get_children():

@@ -322,6 +322,10 @@ func _refresh_status(rep: Reputation, player: Player) -> void:
 		else:
 			_lbl_status.text = "SET ROLLING IN -- COUNT THE WAVES"
 		return
+	for sys in [game.veracruz, game.cozumel, game.kayaks]:
+		if sys != null and sys.status_text() != "":
+			_lbl_status.text = sys.status_text()
+			return
 	if game.crab != null and game.crab.status_text() != "":
 		_lbl_status.text = game.crab.status_text()
 		return

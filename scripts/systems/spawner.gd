@@ -26,6 +26,8 @@ const MAX_TOURISTS := 24
 # Happy Hour gets its own, lower cap. At 24 the beach was impassable rather than
 # difficult -- the event should force you to pick a route, not deny you one.
 const MAX_TOURISTS_HAPPY := 13
+# How far from the worker a tourist may appear round an island.
+const SPAWN_CLEAR := 40.0
 
 # Share of ordinary tourists who swim right out past the buoys. The deep water
 # was the only place the player could never be hit, which turned the most
@@ -143,18 +145,26 @@ func _point(d0: float, d1: float) -> Vector2:
 
 
 func scatter(units: int, at: Vector2) -> void:
-	# Dropped load from a collision. Bursts outward as several small clumps
-	# rather than vanishing, so a hit costs you the WORK of re-gathering
-	# instead of just deleting the problem -- skimming tourists to clear the
-	# beach for free was the exploit this closes.
+	# Dropped load from a collision. It lands back on the sand rather than
+	# vanishing, so a hit costs you the WORK of re-gathering instead of just
+	# deleting the problem -- skimming tourists to clear the beach for free was
+	# the exploit this closes.
+	#
+	# As a few BIG piles, tight round the spot -- not a spray of 1-3 unit
+	# specks. A full hopper used to burst into ~40 specks across the sand: 14s
+	# to re-rake against a 9s firing countdown, so one hit lost late shifts.
+	# Bunched, a worker standing on them rakes them all at once (every pile in
+	# reach gathers in parallel) -- the hit still costs the load's time and the
+	# trip back, but recovering is a skill, not a foregone loss.
 	if units <= 0:
 		return
+	var piles := ceili(float(units) / float(Seaweed.MAX_PILE))
 	var left := units
-	while left > 0:
-		var chunk: int = mini(left, randi_range(1, 3))
+	for i in piles:
+		var chunk := ceili(float(left) / float(piles - i))
 		left -= chunk
-		var a := randf() * TAU
-		var d := randf_range(16.0, 46.0)
+		var a := TAU * float(i) / float(piles) + randf() * 0.5
+		var d := 0.0 if piles == 1 else randf_range(7.0, 13.0)
 		var pos := at + Vector2(cos(a), sin(a) * 0.65) * d
 		# Keep the debris on playable sand, never in the resort or off-screen.
 		pos.x = clampf(pos.x, 16.0, Zones.VIEW_W - 16.0)
@@ -267,9 +277,13 @@ func _tick_tourists(delta: float) -> void:
 	# an island they walk out from the compound in any direction.
 	var start: Vector2
 	if Zones.RADIAL:
-		# Anywhere on the edge of town, facing the beach.
-		var a := randf() * TAU
-		start = Zones.CENTER + Vector2(cos(a), sin(a)) * Zones.TOURIST_SPAWN_Y
+		# Anywhere on the edge of town, facing the beach -- but never on top of
+		# the worker: appearing right beside them was an unavoidable hit.
+		for tries in 12:
+			var a := randf() * TAU
+			start = Zones.CENTER + Vector2(cos(a), sin(a)) * Zones.TOURIST_SPAWN_Y
+			if start.distance_to(game.player.position) > SPAWN_CLEAR:
+				break
 	else:
 		var hi := 330.0 - (70.0 if (game.wind != null and game.wind.active()) else 0.0)
 		start = Vector2(randf_range(30.0, hi), Zones.TOURIST_SPAWN_Y)

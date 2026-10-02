@@ -178,6 +178,13 @@ func _hit(prev: float, now: float) -> void:
 	if py <= prev and py > now:
 		game.player.knock(knock)
 		game.sfx("hit", 0.7, -8.0)
+	# Wading tourists get thrown up the beach too -- often straight into the
+	# worker's path, which is the point.
+	for c in game.world.get_children():
+		if c is Tourist:
+			var t := c as Tourist
+			if t.in_water() and t.position.y <= prev and t.position.y > now:
+				t.knock(knock * 0.8)
 
 
 func _break(w: Dictionary, y: float) -> void:

@@ -14,6 +14,17 @@ const SOUNDS := {
 	"pickup": "res://audio/pickup.mp3",
 	"dump": "res://audio/dump.mp3",
 	"skip_dump": "res://audio/skip_dump.mp3",       # tipping a load at the skip
+	# Level moments.
+	"gust_front": "res://audio/gust_front.mp3",
+	"umbrella_bonk": "res://audio/umbrella_bonk.mp3",
+	"cargo_horn": "res://audio/cargo_horn.mp3",
+	"crate_pickup": "res://audio/crate_pickup.mp3",
+	"cruise_horn": "res://audio/cruise_horn.mp3",
+	"cruise_crowd": "res://audio/cruise_crowd.mp3",
+	"bioluminescence": "res://audio/bioluminescence.mp3",
+	"diver_surface": "res://audio/diver_surface.mp3",
+	"kayak_paddles": "res://audio/kayak_paddles.mp3",
+	"big_splash": "res://audio/big_splash.mp3",
 	"full": "res://audio/full.mp3",
 	"purchase": "res://audio/purchase.mp3",
 	"package": "res://audio/package.mp3",

@@ -145,7 +145,7 @@ func _tow(delta: float) -> void:
 			_splash_t = 0.0
 			_splash_at = Vector2(_flyer.x, _sea_y)
 			if game != null:
-				game.sfx("dump", 0.6, -4.0)
+				game.sfx("big_splash", 1.0, -3.0)
 	else:
 		_splash_t += delta
 	# The weight gone, the chute floats up a little.

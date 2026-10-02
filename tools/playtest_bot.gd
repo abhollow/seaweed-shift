@@ -510,6 +510,17 @@ func _steer(p: Vector2, want: Vector2) -> Vector2:
 		if t.position.distance_to(p) < 160.0:
 			near.append([t.position, sv, t.rowdy])
 	_tourist_prev = seen
+	# The level obstacles that are not Tourist nodes: divers (Cozumel), kayaks
+	# (Bacalar), tumbling umbrellas (Veracruz). Treated as wide "rowdy" boxes.
+	if game.cozumel != null and game.cozumel.active:
+		for d in game.cozumel.divers:
+			near.append([d["pos"], Vector2.ZERO, true])
+	if game.kayaks != null and game.kayaks.active:
+		for b in game.kayaks.boats:
+			near.append([b["pos"], Vector2(Kayaks.SPEED * game.kayaks._dir, 0), true])
+	if game.veracruz != null and game.veracruz.active:
+		for u in game.veracruz.umbrellas:
+			near.append([u["pos"], Vector2(float(u["v"]), 0), true])
 	if near.is_empty() or game.player.in_safe_zone and want == Vector2.ZERO:
 		return want
 

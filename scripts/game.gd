@@ -148,6 +148,9 @@ var hatch: Hatchlings
 var crab: Crab
 var parasail: Parasail
 var gull: Seagull
+var veracruz: Veracruz
+var cozumel: Cozumel
+var kayaks: Kayaks
 var hurricane: Hurricane
 
 # Turtle-nest enclosures (Akumal): solid obstacles on the sand, from the art.
@@ -226,6 +229,9 @@ func _process(delta: float) -> void:
 	crab.tick(delta)
 	parasail.tick(delta)
 	gull.tick(delta)
+	veracruz.tick(delta)
+	cozumel.tick(delta)
+	kayaks.tick(delta)
 	hurricane.tick(delta)
 	if _sway_mat != null:
 		var g: float = wind.gust_shape()
@@ -587,6 +593,22 @@ func _build_systems() -> void:
 	gull.z_index = 45
 	world.add_child(gull)
 
+	# Level moments: Veracruz's gust fronts and cargo, Bacalar's kayak tour on
+	# the water, and Cozumel's night events -- drawn ABOVE the darkness (z 50),
+	# so its lights read as lights.
+	veracruz = Veracruz.new()
+	veracruz.game = self
+	veracruz.z_index = 3
+	world.add_child(veracruz)
+	kayaks = Kayaks.new()
+	kayaks.game = self
+	kayaks.z_index = 1
+	world.add_child(kayaks)
+	cozumel = Cozumel.new()
+	cozumel.game = self
+	cozumel.z_index = 52
+	world.add_child(cozumel)
+
 	hurricane = Hurricane.new()
 	hurricane.game = self
 	add_child(hurricane)
@@ -752,7 +774,9 @@ func storm_burst() -> int:
 
 
 func rot_scale() -> float:
-	return maxf(0.2, float(current_level().get("rot_scale", 1.0)))
+	# A beach can set a floor (Tulum): rot never faster than that there.
+	var s := float(current_level().get("rot_scale", 1.0))
+	return maxf(0.2, maxf(s, float(Beaches.for_level(level).get("rot_floor", 0.0))))
 
 
 func shop_tier() -> int:
@@ -866,6 +890,11 @@ func begin_level() -> void:
 		crab.configure(Beaches.for_level(level), level_index)
 	if parasail != null:
 		parasail.configure(Beaches.for_level(level), level_index)
+	# Level moments start over every shift.
+	if veracruz != null:
+		veracruz.configure(Beaches.for_level(level))
+		cozumel.configure(Beaches.for_level(level))
+		kayaks.configure(Beaches.for_level(level))
 	if gull != null and gull.enabled:
 		gull.reset()
 
@@ -1610,6 +1639,26 @@ func on_player_hit(lost_units: int, lost_value: int, at: Vector2) -> void:
 	# server -- the dropped seaweed came out with dead collision shapes.
 	spawner.scatter.call_deferred(lost_units, at)
 	shake(7.0, 0.34)
+
+
+func touches_player(p: Vector2, size: Vector2) -> bool:
+	# Box against the worker's hitbox, for level obstacles that are not bodies
+	# (divers, kayaks, umbrellas). Never in the bay, never while stunned.
+	if player == null or player.in_safe_zone or player._stun > 0.0:
+		return false
+	var hs: Vector2 = (player._shape.shape as RectangleShape2D).size
+	return absf(player.position.x - p.x) < (hs.x + size.x) * 0.5 \
+		and absf(player.position.y - p.y) < (hs.y + size.y) * 0.5
+
+
+func knock_down(at: Vector2) -> void:
+	# An OBJECT hit: a moment on the sand, but the load stays in your arms.
+	# People (tourists, divers, kayakers) make you drop it; things don't.
+	if player == null or player.in_safe_zone or player._stun > 0.0:
+		return
+	player._stun = 0.6
+	sfx("umbrella_bonk", 1.0, -3.0)
+	shake(3.0, 0.2)
 
 
 func add_credits(n: int) -> void:

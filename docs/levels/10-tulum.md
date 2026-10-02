@@ -18,12 +18,12 @@ and darkening, the Bacalar surf -- rather than inventing new ones.
 | Calm | shift start | sunny, still |
 | Gathering | 15% of the shift target | the wind picks up (24 px/s, gusts) |
 | Front | 35% | the hurricane hits: gale (40 px/s), storm rain and darkness, surf sets |
-| **Eye** | 60% | **everything stops for 20s**: sky clears to gold, no wind, no rain, no surf, seaweed at 30% |
+| **Eye** | 60% | **everything stops for 30s**: sky clears to gold, no wind, no rain, no surf, seaweed at 30% |
 | **Back wall** | after the eye | **the wind reverses** -- right to left, harder (46 px/s) -- storm and surf return |
 
 Phases follow **progress** through the shift, not the clock, so the eye always
 comes before the end and the storm peaks as the player finishes, however long the
-shift takes. The eye alone is timed: once it arrives it gives a fixed 20s.
+shift takes. The eye alone is timed: once it arrives it gives a fixed 30s.
 
 **The wind reversing is the twist.** Every habit from the front -- walk with it
 to the skip, fight it on the way back -- is backwards after the eye. Real

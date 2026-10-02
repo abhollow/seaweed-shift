@@ -2310,6 +2310,152 @@ func _run() -> void:
 			game.apply_upgrade(String(gu["id"]))
 	await frames(1)
 
+	print("\n[dropped loads, Holbox spawns, Tulum relief]")
+	game.level = 1
+	game.apply_beach()
+	game.begin_level()
+	for c in game.world.get_children():
+		if c is Seaweed:
+			c.free()
+	var hit_at := Vector2(180, Zones.SHORE_Y - 40.0)
+	game.spawner.scatter(40, hit_at)
+	var drop_piles := 0
+	var drop_far := 0.0
+	var drop_units := 0
+	for c in game.world.get_children():
+		if c is Seaweed:
+			drop_piles += 1
+			drop_units += (c as Seaweed).units
+			drop_far = maxf(drop_far, (c as Seaweed).position.distance_to(hit_at))
+	check("a dropped load lands as a few big piles", drop_piles == 5 and drop_units == 40)
+	check("right where the worker was hit", drop_far < 16.0)
+	for c in game.world.get_children():
+		if c is Seaweed:
+			c.free()
+	game.level = 6
+	game.apply_beach()
+	var fade_t: Tourist = game.spawner.make_tourist(Zones.CENTER + Vector2(0, -Zones.TOURIST_SPAWN_Y), Zones.SHORE_Y, false)
+	await frames(1)
+	check("on Holbox a tourist fading in cannot hit anyone yet", fade_t._arriving > 0.0)
+	fade_t.free()
+	game.level = 10
+	game.apply_beach()
+	game.level_index = 3
+	check("Tulum's rot is no faster than 0.8x, even on shift 4", game.rot_scale() >= 0.8)
+	check("and the eye lasts 30s", is_equal_approx(float(Beaches.for_level(10)["hurricane"]["eye_len"]), 30.0))
+	game.level_index = 0
+	game.level = 1
+	game.apply_beach()
+	game.begin_level()
+
+	print("\n[veracruz moments]")
+	game.level = 2
+	game.apply_beach()
+	game.begin_level()
+	var vz: Veracruz = game.veracruz
+	check("Veracruz has its gust fronts and cargo", vz.active)
+	for c in game.world.get_children():
+		if c is Seaweed or c is Tourist:
+			c.free()
+	var vp: Seaweed = game.spawner._add_seaweed(Vector2(100, Zones.SHORE_Y - 30.0), 3, false, false)
+	var vp_x: float = vp.position.x
+	vz._next_front = 0.0
+	vz.tick(0.01)
+	check("a gust front is announced before it hits", vz.status_text().contains("GUST"))
+	for i in 120:
+		vz.tick(0.05)
+	await frames(30)
+	check("as it passes, beached piles slide downwind", (vp.position.x - vp_x) * vz._dir > 15.0)
+	game.player.position = Vector2(180, Zones.HOTEL_BOTTOM + 60.0)
+	game.player.in_safe_zone = false
+	game.player._stun = 0.0
+	game.player.carried = 4
+	vz.umbrellas = [{"pos": game.player.position, "v": 100.0, "rot": 0.0, "bounce": 0.0, "col": Color.RED}]
+	vz.tick(0.01)
+	check("a tumbling umbrella knocks the worker down", game.player._stun > 0.0)
+	check("but the load stays in their arms", game.player.carried == 4)
+	game.player._stun = 0.0
+	game.player.carried = 0
+	game.player.carried_value = 0.0
+	vz.umbrellas.clear()
+	vz._spill()
+	check("lost cargo floats in from the deep", vz.crates.size() >= 2 and not bool(vz.crates[0]["beached"]))
+	vz.crates[0]["pos"] = game.player.position
+	vz.crates[0]["beached"] = true
+	for i in 20:
+		vz.tick(0.05)
+	check("stand on a crate to haul it: it takes 5 slots", game.player.carried == Veracruz.CRATE_SLOTS)
+	check("and is worth a good bonus at the skip", game.player.carried_value >= game.price_per_unit * 20.0)
+	game.player.carried = 0
+	game.player.carried_value = 0.0
+	vz.crates.clear()
+
+	print("\n[cozumel nights]")
+	game.level = 4
+	game.apply_beach()
+	game.begin_level()
+	var cz: Cozumel = game.cozumel
+	check("Cozumel has its night events", cz.active)
+	for c in game.world.get_children():
+		if c is Tourist:
+			c.free()
+	cz._cruise_wait = 0.0
+	cz.tick(0.01)
+	check("a cruise ship comes by", cz.ship_on())
+	var crowd0: int = game.spawner.count_tourists()
+	for i in 400:
+		cz.tick(0.05)
+	check("and its passengers pour onto the beach", game.spawner.count_tourists() >= crowd0 + 6)
+	game.spawner._add_seaweed(Vector2(200, Zones.DEEP_TOP + 30.0), 1, false, true)
+	cz._glow_t = 2.0
+	check("the sea glows: drifting seaweed lights up in the dark", cz.lights().size() >= 1)
+	cz._glow_t = -1.0
+	cz.divers.clear()
+	cz._divers_next = 0.0
+	cz.tick(0.01)
+	check("night divers surface in the shallows", cz.divers.size() == 2)
+	game.player.position = cz.divers[0]["pos"]
+	game.player.in_safe_zone = false
+	game.player._stun = 0.0
+	game.player.carried = 5
+	for i in 30:
+		cz.tick(0.05)
+	await frames(2)
+	check("bump a diver and the load is dropped", game.player.carried == 0)
+	game.player._stun = 0.0
+
+	print("\n[bacalar shallows]")
+	game.level = 5
+	game.apply_beach()
+	game.begin_level()
+	var ky: Kayaks = game.kayaks
+	check("Bacalar has its kayak tour", ky.active)
+	ky._next = 0.0
+	ky.tick(0.01)
+	check("a line of kayaks sets off across the shallows", ky.boats.size() == ky.count)
+	game.player.position = (ky.boats[0]["pos"] as Vector2) + Vector2(ky._dir * 4.0, 0)
+	game.player.in_safe_zone = false
+	game.player._stun = 0.0
+	game.player.carried = 5
+	ky.tick(0.01)
+	await frames(2)
+	check("paddle into one and the load is dropped", game.player.carried == 0)
+	game.player._stun = 0.0
+	var surf_wader: Tourist = game.spawner.make_tourist(Vector2(120, Zones.SHALLOW_TOP + 30.0), Zones.DEEP_TOP, false)
+	surf_wader.set_process(false)
+	await frames(1)
+	var surf_wy: float = surf_wader.position.y
+	game.surf._hit(surf_wy + 1.0, surf_wy - 1.0)
+	surf_wader.set_process(true)
+	await frames(30)
+	check("a big wave throws wading tourists up the beach", surf_wader.position.y < surf_wy - 10.0)
+	surf_wader.free()
+	game.level = 1
+	game.level_index = 0
+	game.apply_beach()
+	game.begin_level()
+	await frames(1)
+
 	print("\n[every level's soundtrack]")
 	for lvm in range(1, 11):
 		var want = Beaches.for_level(lvm).get("music", null)

@@ -26,6 +26,9 @@ const LIST := {
 		# a new beach and a rule at once.
 		"name": "Veracruz",
 		"tourists": "blue",  # most of the crowd wears this; see Spawner.TOURIST_COLOURS
+		# Gust fronts (sand wall, piles slide, umbrellas tumble) and lost cargo
+		# (crates wash ashore, a bonus to haul). See systems/veracruz.gd.
+		"veracruz": {"front_first": 25.0, "front_every": 50.0, "cargo_first": 45.0, "cargo_every": 70.0},
 		# No storms on foot here: the wind already makes walking hard, and a
 		# storm's seaweed surge on top of it was more than anyone could clear.
 		"storms_need": "tractor",
@@ -109,6 +112,10 @@ const LIST := {
 	4: {
 		"name": "Cozumel",
 		"tourists": "aqua",  # most of the crowd wears this; see Spawner.TOURIST_COLOURS
+		# A cruise ship once a shift (and its passengers), bioluminescence, and
+		# night divers in the shallows. See systems/cozumel.gd.
+		"cozumel": {"cruise_at": [40.0, 80.0], "cruise_crowd": 8, "glow_first": 25.0, "glow_every": 60.0,
+			"divers_first": 30.0, "divers_every": 40.0},
 		"tagline": "The night shift. Work by lantern light -- and watch for the moon.",
 		"music": [
 			"res://audio/Island_Night_Drive_1.mp3",
@@ -144,6 +151,9 @@ const LIST := {
 	5: {
 		"name": "Bacalar",
 		"tourists": "green",  # most of the crowd wears this; see Spawner.TOURIST_COLOURS
+		# A kayak tour crossing the shallows. (Big waves also throw wading
+		# tourists up the beach -- that lives in systems/surf.gd.)
+		"kayaks": {"first": 30.0, "every": 55.0, "count": 4},
 		"tagline": "Count the small waves -- then get out before the big one knocks you back to shore.",
 		"music": [
 			"res://audio/Tidal_Rush_1.mp3",
@@ -360,11 +370,17 @@ const LIST := {
 		# shift; random storms and Happy Hour are off so nothing competes.
 		"no_storms": true,
 		"no_happy_hour": true,
+		# Rot no faster than 0.8x on any shift (shifts 3-4 are 0.62 / 0.58 elsewhere):
+		# the gale slows every trip, so piles rotted while the worker fought the
+		# wind to reach them. See Game.rot_scale().
+		"rot_floor": 0.8,
 		"hurricane": {
 			"gathering": 0.15,
 			"front": 0.35,
 			"eye": 0.6,
-			"eye_len": 20.0,
+			# 30s (was 20): the only breather, and the bot arrived at it already
+			# failing on every late Tulum shift.
+			"eye_len": 30.0,
 		},
 		# Wind and surf parameters; the hurricane switches them on and off.
 		"wind": {"strength": 0.0},

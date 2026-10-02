@@ -78,6 +78,11 @@ const TINT_SHADER := preload("res://shaders/tourist_tint.gdshader")
 static var _tints := {}
 const FADE := 0.35
 var _leaving := false
+var _arriving := 0.0             # fading in: cannot hit anyone yet
+# Knocked by a wave (Bacalar, Tulum): carried this far back up the beach.
+var _knock_left := 0.0
+const KNOCK_TIME := 0.5
+var _knock_speed := 0.0
 
 var _state: int = State.DESCEND
 var _out := Vector2(0, 1)
@@ -151,6 +156,7 @@ func _ready() -> void:
 	# so they fade in rather than pop.
 	if Zones.RADIAL:
 		modulate.a = 0.0
+		_arriving = FADE
 		create_tween().tween_property(self, "modulate:a", 1.0, FADE)
 
 
@@ -223,6 +229,13 @@ func _tick_walk(delta: float) -> void:
 func _process(delta: float) -> void:
 	if _leaving:
 		return
+	_arriving = maxf(0.0, _arriving - delta)
+	if _knock_left > 0.0:
+		# Thrown back up the beach by a breaking wave, a little at a time.
+		var k := minf(_knock_left, _knock_speed * delta)
+		position -= _out * k
+		_knock_left -= k
+		rotation = sin(_knock_left * 0.2) * 0.3
 	_phase += delta * 3.5
 	_tick_walk(delta)
 
@@ -299,7 +312,16 @@ func _tick_gust(delta: float) -> void:
 		rotation = lean
 
 
+func knock(dist: float) -> void:
+	if _knock_left > 0.0 or _leaving:
+		return
+	_knock_left = dist
+	_knock_speed = dist / KNOCK_TIME
+
+
 func _on_body_entered(body: Node2D) -> void:
+	if _arriving > 0.0 or _leaving:
+		return
 	if body is Player:
 		(body as Player).get_hit()
 
