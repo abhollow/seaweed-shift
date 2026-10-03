@@ -11,10 +11,14 @@ extends RefCounted
 const LIST := {
 	1: {
 		"name": "Cancun",
+		"bin_offset": 14.0,  # skip toward the garage
 		"tourists": "pink",  # most of the crowd wears this; see Spawner.TOURIST_COLOURS
 		# Just for laughs, once a level in shift 1 (0-based below): a parasailer
 		# drops out of the sky into the sea. See systems/parasail.gd.
 		"parasail": {"shift": 0, "at": [40.0, 90.0]},
+		# A small flock lands on the sand now and then; walk up and they fly
+		# off. Scenery only. See systems/flamingos.gd.
+		"flamingos": {"first": 20.0, "every": 70.0, "count": 3},
 		"tagline": "Your first shift at the resort. Keep the beach clean and the guests happy.",
 		"background": "res://assets/sprites/background_level1.png",
 		"water": "res://assets/sprites/water_%02d.png",
@@ -25,6 +29,7 @@ const LIST := {
 		# the wind is the ONE new thing, so the player learns a rule rather than
 		# a new beach and a rule at once.
 		"name": "Veracruz",
+		"bin_offset": 14.0,
 		"tourists": "blue",  # most of the crowd wears this; see Spawner.TOURIST_COLOURS
 		# Gust fronts (sand wall, piles slide, umbrellas tumble) and lost cargo
 		# (crates wash ashore, a bonus to haul). See systems/veracruz.gd.
@@ -71,6 +76,8 @@ const LIST := {
 	},
 	3: {
 		"name": "Playa del Carmen",
+		"bin_offset": 4.0,
+		"bin_flip": true,  # skip faces right, into the bay
 		"tourists": "purple",  # most of the crowd wears this; see Spawner.TOURIST_COLOURS
 		# Once a level, in shift 2 (0-based below), 35-80s in: a crab digs out of
 		# the sand and chases the worker. See systems/crab.gd.
@@ -329,6 +336,7 @@ const LIST := {
 	},
 	9: {
 		"name": "Akumal",
+		"bin_offset": -4.0,
 		"tourists": "aqua",  # most of the crowd wears this; see Spawner.TOURIST_COLOURS
 		"tagline": "The bay of turtles. Work around the nests -- and when they hatch, clear the way to the sea.",
 		# Turtle-nest enclosures, measured from the art: solid for the worker

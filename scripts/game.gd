@@ -151,6 +151,7 @@ var gull: Seagull
 var veracruz: Veracruz
 var cozumel: Cozumel
 var kayaks: Kayaks
+var flamingos: Flamingos
 var hurricane: Hurricane
 
 # Turtle-nest enclosures (Akumal): solid obstacles on the sand, from the art.
@@ -232,6 +233,7 @@ func _process(delta: float) -> void:
 	veracruz.tick(delta)
 	cozumel.tick(delta)
 	kayaks.tick(delta)
+	flamingos.tick(delta)
 	hurricane.tick(delta)
 	if _sway_mat != null:
 		var g: float = wind.gust_shape()
@@ -386,9 +388,8 @@ func _build_bay() -> void:
 		var bin_spr := Sprite2D.new()
 		bin_spr.texture = tex_bin
 		_bay_bin = bin_spr
-		# Pushed hard against the bay's OUTER wall -- right on most beaches,
-		# left where a level puts the bay on the left.
 		bin_spr.position = Vector2(_bin_offset(), _bin_y())
+		bin_spr.flip_h = _bin_flip()
 		var bt := tex_bin.get_size()
 		if bt.x > 0.0 and bt.y > 0.0:
 			bin_spr.scale = Vector2(Zones.BIN_SIZE.x / bt.x, Zones.BIN_SIZE.y / bt.y)
@@ -604,6 +605,10 @@ func _build_systems() -> void:
 	kayaks.game = self
 	kayaks.z_index = 1
 	world.add_child(kayaks)
+	flamingos = Flamingos.new()
+	flamingos.game = self
+	flamingos.z_index = 45
+	world.add_child(flamingos)
 	cozumel = Cozumel.new()
 	cozumel.game = self
 	cozumel.z_index = 52
@@ -895,6 +900,7 @@ func begin_level() -> void:
 		veracruz.configure(Beaches.for_level(level))
 		cozumel.configure(Beaches.for_level(level))
 		kayaks.configure(Beaches.for_level(level))
+		flamingos.configure(Beaches.for_level(level))
 	if gull != null and gull.enabled:
 		gull.reset()
 
@@ -1091,13 +1097,19 @@ func _bin_offset() -> float:
 	var over = Beaches.for_level(level).get("bin_offset", null)
 	if over != null:
 		return float(over)
-	return -26.0 if _bay_on_left() else 26.0
+	return 0.0
 
 
 func _bin_y() -> float:
 	# Where the skip is DRAWN, up or down from the bay centre. The drop-off zone
 	# itself does not move; this only seats the sprite on the art.
-	return float(Beaches.for_level(level).get("bin_y", 0.0))
+	# The -8 keeps the bigger skip's base where the old, smaller one sat.
+	return float(Beaches.for_level(level).get("bin_y", 0.0)) - 8.0
+
+
+func _bin_flip() -> bool:
+	# The art faces left; a level can turn it to face right.
+	return bool(Beaches.for_level(level).get("bin_flip", false))
 
 
 func _apply_bay_bounds() -> void:
@@ -1220,6 +1232,7 @@ func apply_beach() -> void:
 			_bay_rect.size = Zones.BAY_SIZE
 		if _bay_bin != null:
 			_bay_bin.position = Vector2(_bin_offset(), _bin_y())
+			_bay_bin.flip_h = _bin_flip()
 	_apply_bay_bounds()
 
 	if player != null:

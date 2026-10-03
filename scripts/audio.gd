@@ -25,6 +25,7 @@ const SOUNDS := {
 	"diver_surface": "res://audio/diver_surface.mp3",
 	"kayak_paddles": "res://audio/kayak_paddles.mp3",
 	"big_splash": "res://audio/big_splash.mp3",
+	"flamingo_flap": "res://audio/flamingo_flap.mp3",
 	"full": "res://audio/full.mp3",
 	"purchase": "res://audio/purchase.mp3",
 	"package": "res://audio/package.mp3",

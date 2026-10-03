@@ -42,7 +42,7 @@ static var BAY_POS := Vector2(311, 156)
 static var BAY_SIZE := Vector2(62, 74)
 # Half the original size. The background art already reads as a service bay, so
 # the skip only needs to mark the exact drop point, not dominate the corner.
-const BIN_SIZE := Vector2(28, 32)
+const BIN_SIZE := Vector2(42, 48)
 
 
 # ---- Radial layout (Isla Holbox) ------------------------------------------

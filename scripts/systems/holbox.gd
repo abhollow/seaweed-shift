@@ -398,6 +398,13 @@ func _draw_flamingos(c: CanvasItem) -> void:
 		var pos := home + out * (1.0 - a) * 140.0 + Vector2(0, -(1.0 - a) * 40.0)
 		var pink := Color(0.98, 0.52, 0.64)
 		var dark := Color(0.55, 0.22, 0.30)
+		if flying:
+			var ft := Flamingos.flight_tex(_anim + ph)
+			var fz := ft.get_size() * 2.0
+			c.draw_set_transform(pos + Vector2(0, -fz.y * 0.5), 0.0, Vector2(-1.0 if b["flip"] else 1.0, 1.0))
+			c.draw_texture_rect(ft, Rect2(-fz * 0.5, fz), false)
+			c.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+			continue
 		if _flamingo_tex != null:
 			var sz := _flamingo_tex.get_size() * 2.0
 			var bobbing := sin(_anim * (9.0 if flying else 1.5) + ph) * (3.0 if flying else 1.0)

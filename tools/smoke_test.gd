@@ -1035,8 +1035,8 @@ func _run() -> void:
 	game.apply_beach()
 	check("Playa del Carmen puts the bay on the left",
 		game._bay.position.x < Zones.VIEW_W / 2.0)
-	check("the skip moves to the bay's outer, left wall",
-		game._bay_bin == null or game._bay_bin.position.x < 0.0)
+	check("the skip sits mid-bay, turned to face right",
+		game._bay_bin == null or (absf(game._bay_bin.position.x) < 10.0 and game._bay_bin.flip_h))
 	check("the driveway opens on the left",
 		game.player.bay_x0 < 20.0 and game.player.bay_x1 < Zones.VIEW_W / 2.0)
 	game.level = 1
@@ -2455,6 +2455,23 @@ func _run() -> void:
 	game.apply_beach()
 	game.begin_level()
 	await frames(1)
+
+	print("\n[cancun flamingos]")
+	var fl: Flamingos = game.flamingos
+	check("Cancun has flamingos", fl.active)
+	fl._next = 0.0
+	game.player.position = Vector2(Zones.VIEW_W - 20.0, Zones.HOTEL_BOTTOM + 20.0)
+	for i in 80:
+		fl.tick(0.05)
+	check("a flock lands and stands on the sand",
+		fl.birds.size() == fl.count and fl.birds.all(func(b): return b["state"] == "stand"))
+	check("they ignore a worker who keeps away", fl.birds.all(func(b): return b["state"] == "stand"))
+	game.player.position = fl.birds[0]["pos"]
+	fl.tick(0.05)
+	check("walk up and the whole flock takes off", fl.birds.all(func(b): return b["state"] == "off"))
+	for i in 100:
+		fl.tick(0.05)
+	check("and flies away off the screen", fl.birds.is_empty())
 
 	print("\n[every level's soundtrack]")
 	for lvm in range(1, 11):
