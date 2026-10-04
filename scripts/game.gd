@@ -731,7 +731,7 @@ func sidestep_nests(p: Vector2, pad: float) -> Vector2:
 
 func adapt_after_fail() -> void:
 	shift_fails += 1
-	adapt = maxf(ADAPT_MIN, adapt * ADAPT_FAIL)
+	adapt = maxf(ADAPT_MIN, adapt * float(beginner().get("fail_ease", ADAPT_FAIL)))
 	last_adapt = -1
 
 
@@ -761,7 +761,27 @@ const GENTLE_STORM := 0.5
 
 
 func gentle_storm() -> bool:
+	if not beginner().is_empty():
+		return true
 	return not owned.has("jacket") and not owned.has("backpack")
+
+
+func beginner() -> Dictionary:
+	# The first level's forgiving settings (see Cancun in beaches.gd); empty
+	# everywhere else.
+	return Beaches.for_level(level).get("beginner", {})
+
+
+func storm_every() -> float:
+	return float(beginner().get("storm_every", Weather.STORM_EVERY))
+
+
+func rep_fall() -> float:
+	return Reputation.REP_FALL * float(beginner().get("rep_fall", 1.0))
+
+
+func fail_grace() -> float:
+	return float(beginner().get("fail_grace", Reputation.FAIL_GRACE))
 
 
 func storm_mult() -> float:
@@ -900,7 +920,7 @@ func begin_level() -> void:
 		veracruz.configure(Beaches.for_level(level))
 		cozumel.configure(Beaches.for_level(level))
 		kayaks.configure(Beaches.for_level(level))
-		flamingos.configure(Beaches.for_level(level))
+		flamingos.configure(Beaches.for_level(level), level_index)
 	if gull != null and gull.enabled:
 		gull.reset()
 
@@ -928,7 +948,7 @@ func _check_level_failed() -> void:
 		return
 	# A dip to zero starts a countdown rather than ending the run. One storm
 	# surge should be survivable if the player reacts.
-	if rep.zero_time < Reputation.FAIL_GRACE:
+	if rep.zero_time < fail_grace():
 		return
 	fail_shift()
 

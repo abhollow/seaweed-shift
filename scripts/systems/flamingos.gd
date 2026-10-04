@@ -1,16 +1,14 @@
 class_name Flamingos
 extends Node2D
 
-# Cancun's flamingos: every so often a small flock glides in and stands about
-# on the dry sand above the waterline. Walk up to them and they scatter and fly
+# Cancun's flamingos: once in each of the level's chosen shifts, a small flock
+# glides in and stands about on the dry sand above the waterline. Walk up to them and they scatter and fly
 # off. Pure scenery for now -- they block nothing (Holbox's flock is the one
 # that gets in the way; see holbox.gd).
 
 var game
 var active := false
 
-var first := 20.0
-var every := 70.0
 var count := 3
 
 const ART := preload("res://assets/sprites/flamingo.png")   # facing right
@@ -31,15 +29,17 @@ var _anim := 0.0
 var birds: Array = []             # {home, pos, from, t, state, flip, phase, vel, delay}
 
 
-func configure(beach: Dictionary) -> void:
+func configure(beach: Dictionary, shift_index: int) -> void:
 	var f: Dictionary = beach.get("flamingos", {})
-	active = not f.is_empty()
+	active = not f.is_empty() and shift_index in f.get("shifts", [])
 	visible = active
-	first = float(f.get("first", 20.0))
-	every = float(f.get("every", 70.0))
 	count = int(f.get("count", 3))
-	_next = first
+	var at: Array = f.get("at", [30.0, 120.0])
+	_next = randf_range(float(at[0]), float(at[1]))
 	birds.clear()
+	# Without this a retried shift kept showing the old flock, frozen, until
+	# the next one landed.
+	queue_redraw()
 
 
 func tick(delta: float) -> void:
@@ -47,10 +47,10 @@ func tick(delta: float) -> void:
 		return
 	_anim += delta
 	if birds.is_empty():
-		_next -= delta
-		if _next <= 0.0:
-			_next = every * randf_range(0.85, 1.15)
-			_land()
+		if _next > 0.0:
+			_next -= delta
+			if _next <= 0.0:
+				_land()      # once this shift; _next stays spent
 		return
 	var spooked := false
 	for b in birds:

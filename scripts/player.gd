@@ -104,6 +104,11 @@ var joystick: Joystick
 var game   # left untyped on purpose so we can read game.storm_active
 
 var _stun := 0.0
+# After a hit's stun, a short window where tourists can't hit you again: long
+# enough to scoop the dropped piles and step clear, instead of being knocked
+# down over and over in the same spot.
+const HIT_GRACE := 2.0
+var _grace := 0.0
 var _facing_left := false
 var _frames: Array[Texture2D] = []
 var _frames_side: Array[Texture2D] = []
@@ -320,7 +325,7 @@ func dump() -> int:
 
 
 func get_hit() -> void:
-	if _stun > 0.0:
+	if _stun > 0.0 or _grace > 0.0:
 		return
 	if in_safe_zone:
 		return
@@ -348,7 +353,14 @@ func _physics_process(delta: float) -> void:
 		modulate = Color(1, 1, 1, 0.45) if int(_stun * 12.0) % 2 == 0 else Color(1, 1, 1, 1)
 		if _stun <= 0.0:
 			modulate = Color(1, 1, 1, 1)
+			_grace = HIT_GRACE
 		return
+	if _grace > 0.0:
+		# a softer blink than the stun's, so it reads as "safe for now"
+		_grace -= delta
+		modulate.a = 0.65 if int(_grace * 8.0) % 2 == 0 else 1.0
+		if _grace <= 0.0:
+			modulate.a = 1.0
 
 	var dir: Vector2 = joystick.direction if joystick != null else Vector2.ZERO
 	velocity = dir * current_speed()

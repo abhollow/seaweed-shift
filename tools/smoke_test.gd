@@ -252,7 +252,7 @@ func _run() -> void:
 
 	# --- weather ----------------------------------------------------------
 	print("\n[storm]")
-	game.weather._storm_t = Weather.STORM_EVERY
+	game.weather._storm_t = game.storm_every()
 	await sim(1.5)
 	check("storm active", game.storm_active)
 	check("storm bed selected", game.weather.bed == Weather.Bed.STORM)
@@ -739,7 +739,7 @@ func _run() -> void:
 	game._check_level_failed()
 	check("a dip to zero does not fail the shift immediately", not game.level_failed)
 	check("the countdown is showing", game.rep.failing() or game.rep.zero_time == 0.0)
-	game.rep.zero_time = Reputation.FAIL_GRACE + 0.1
+	game.rep.zero_time = game.fail_grace() + 0.1
 	game._check_level_failed()
 	await frames(3)
 	check("sustained zero reputation fails the shift", game.level_failed)
@@ -1181,16 +1181,16 @@ func _run() -> void:
 	game.storm_active = false
 	game.happy_hour = false
 	game.owned.erase("tractor")
-	game.weather._storm_t = Weather.STORM_EVERY + 10.0
+	game.weather._storm_t = game.storm_every() + 10.0
 	game.weather._tick_storm(0.1)
 	check("Veracruz holds storms back while you are on foot", not game.storm_active)
 	check("and keeps the next one a little way off",
-		game.weather._storm_t <= Weather.STORM_EVERY - Weather.STORM_GRACE + 0.2)
+		game.weather._storm_t <= game.storm_every() - Weather.STORM_GRACE + 0.2)
 	game.owned["waders"] = true
 	game.owned["tractor"] = true
 	game.weather._tick_storm(0.1)
 	check("buying the tractor does not set one off instantly", not game.storm_active)
-	game.weather._storm_t = Weather.STORM_EVERY
+	game.weather._storm_t = game.storm_every()
 	game.weather._tick_storm(0.1)
 	check("once you have the tractor, storms come back", game.storm_active)
 	game.storm_active = keep_storm
@@ -2258,7 +2258,17 @@ func _run() -> void:
 	check("with no jacket or backpack, storms are gentle", game.gentle_storm())
 	check("and only about half the floating seaweed rides the surge", riders > 70 and riders < 130)
 	game.owned = {"backpack": true}
-	check("a backpack brings full storms back", not game.gentle_storm())
+	check("on Cancun storms stay gentle even with a backpack", game.gentle_storm())
+	var keep_level: int = game.level
+	game.level = 2
+	check("from level 2 a backpack brings full storms back", not game.gentle_storm())
+	check("and level 2 is not forgiving: normal storms, rep fall and grace",
+		game.storm_every() == Weather.STORM_EVERY and game.rep_fall() == Reputation.REP_FALL
+		and game.fail_grace() == Reputation.FAIL_GRACE)
+	game.level = keep_level
+	check("Cancun forgives: rarer storms, slower rep fall, longer grace",
+		game.storm_every() > Weather.STORM_EVERY and game.rep_fall() < Reputation.REP_FALL
+		and game.fail_grace() > Reputation.FAIL_GRACE)
 	game.owned = keep_gear
 
 	print("\n[pet seagull]")
@@ -2458,8 +2468,8 @@ func _run() -> void:
 
 	print("\n[cancun flamingos]")
 	var fl: Flamingos = game.flamingos
-	check("Cancun has flamingos", fl.active)
-	fl._next = 0.0
+	check("Cancun has flamingos in its first shift", fl.active)
+	fl._next = 0.01
 	game.player.position = Vector2(Zones.VIEW_W - 20.0, Zones.HOTEL_BOTTOM + 20.0)
 	for i in 80:
 		fl.tick(0.05)
@@ -2472,6 +2482,42 @@ func _run() -> void:
 	for i in 100:
 		fl.tick(0.05)
 	check("and flies away off the screen", fl.birds.is_empty())
+	for i in 2000:
+		fl.tick(0.1)
+	check("only one flock a shift", fl.birds.is_empty())
+	fl.configure(Beaches.for_level(1), 1)
+	check("and none in shift 2", not fl.active)
+	fl.configure(Beaches.for_level(1), 2)
+	check("but one again in shift 3", fl.active)
+	fl._next = 0.01
+	for i in 10:
+		fl.tick(0.1)
+	fl.configure(Beaches.for_level(1), 2)
+	check("a retried shift clears the old flock", fl.birds.is_empty() and fl._next > 0.0)
+
+	print("
+[quiet first level, and no hit loops]")
+	check("Cancun sends about half the tourists", game.spawner.tourist_pressure() < game.difficulty() * 0.6)
+	var crowd_lv: int = game.level
+	game.level = 2
+	check("every other level runs a thinner crowd too",
+		is_equal_approx(game.spawner.tourist_pressure(), game.difficulty() * Spawner.CROWD))
+	game.level = crowd_lv
+	game.player.in_safe_zone = false
+	game.player._stun = 0.0
+	game.player._grace = 0.0
+	game.player.carried = 5
+	game.player.get_hit()
+	check("a hit stuns and drops the load", game.player._stun > 0.0 and game.player.carried == 0)
+	await sim(1.0)
+	game.player.carried = 5
+	game.player.get_hit()
+	check("right after the stun, a second tourist can't hit you", game.player.carried == 5)
+	await sim(2.2)
+	game.player.get_hit()
+	check("once the safe window ends, hits land again", game.player.carried == 0)
+	game.player._stun = 0.0
+	game.player._grace = 0.0
 
 	print("\n[every level's soundtrack]")
 	for lvm in range(1, 11):
@@ -2594,13 +2640,14 @@ func _run() -> void:
 	var keep_fails: int = game.shift_fails
 	game.adapt = 1.0
 	game.shift_fails = 0
+	var ease_by: float = float(game.beginner().get("fail_ease", Game.ADAPT_FAIL))
 	game.adapt_after_fail()
-	check("failing a shift eases the next attempt", is_equal_approx(game.adapt, 0.9) and game.last_adapt == -1)
+	check("failing a shift eases the next attempt", is_equal_approx(game.adapt, ease_by) and game.last_adapt == -1)
 	game.adapt_after_finish()
-	check("finishing after a fail leaves it alone", is_equal_approx(game.adapt, 0.9) and game.last_adapt == 0)
+	check("finishing after a fail leaves it alone", is_equal_approx(game.adapt, ease_by) and game.last_adapt == 0)
 	check("and the next shift starts with a clean record", game.shift_fails == 0)
 	game.adapt_after_finish()
-	check("finishing first try makes the next shift busier", is_equal_approx(game.adapt, 0.9 * 1.06) and game.last_adapt == 1)
+	check("finishing first try makes the next shift busier", is_equal_approx(game.adapt, ease_by * Game.ADAPT_CLEAN) and game.last_adapt == 1)
 	var lvl_keep: int = game.level
 	game.level = 1
 	var sc: float = game.spawn_scale()

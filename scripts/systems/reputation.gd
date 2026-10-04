@@ -45,7 +45,7 @@ func tick(delta: float) -> void:
 
 	# Eased rather than snapped, and asymmetric: reputation falls faster than it
 	# recovers, so letting the beach go is cheap and digging out of it is not.
-	var rate := REP_FALL if goal < value else REP_RISE
+	var rate: float = game.rep_fall() if goal < value else REP_RISE
 	value = move_toward(value, goal, rate * delta)
 
 	# Time spent on the floor. Reset the moment the meter lifts at all, so any
@@ -73,7 +73,7 @@ func failing() -> bool:
 
 
 func fail_countdown() -> float:
-	return maxf(0.0, FAIL_GRACE - zero_time)
+	return maxf(0.0, game.fail_grace() - zero_time)
 
 
 func shore_mess() -> float:

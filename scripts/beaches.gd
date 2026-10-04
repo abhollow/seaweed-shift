@@ -16,9 +16,18 @@ const LIST := {
 		# Just for laughs, once a level in shift 1 (0-based below): a parasailer
 		# drops out of the sky into the sea. See systems/parasail.gd.
 		"parasail": {"shift": 0, "at": [40.0, 90.0]},
-		# A small flock lands on the sand now and then; walk up and they fly
-		# off. Scenery only. See systems/flamingos.gd.
-		"flamingos": {"first": 20.0, "every": 70.0, "count": 3},
+		# A small flock lands on the sand once in each listed shift (0-based),
+		# at a random time in "at"; walk up and they fly off. Scenery only.
+		# See systems/flamingos.gd.
+		"flamingos": {"shifts": [0, 2], "at": [30.0, 120.0], "count": 3},
+		# The first level is for learning, so it forgives: storms stay gentle
+		# whatever you have bought, and come less often; reputation sinks more
+		# slowly and gets longer on the floor before you are fired; and a lost
+		# shift eases the retry twice as much; and about half the tourists come
+		# (fewer arriving, fewer on the sand at once). Level 2 onwards ramps up
+		# as normal.
+		"beginner": {"storm_every": 110.0, "rep_fall": 0.6, "fail_grace": 15.0, "fail_ease": 0.8,
+			"tourists": 0.55},
 		"tagline": "Your first shift at the resort. Keep the beach clean and the guests happy.",
 		"background": "res://assets/sprites/background_level1.png",
 		"water": "res://assets/sprites/water_%02d.png",

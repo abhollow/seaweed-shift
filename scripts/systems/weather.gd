@@ -172,8 +172,8 @@ func _tick_storm(delta: float) -> void:
 	# which reads as a punishment for upgrading. This way the first storm comes
 	# about 25s after the tractor -- a moment to enjoy it first.
 	if not storms_allowed():
-		_storm_t = minf(_storm_t, STORM_EVERY - STORM_GRACE)
-	if _storm_t >= STORM_EVERY and not game.happy_hour and storms_allowed():
+		_storm_t = minf(_storm_t, game.storm_every() - STORM_GRACE)
+	if _storm_t >= game.storm_every() and not game.happy_hour and storms_allowed():
 		_storm_t = 0.0
 		game.storm_active = true
 		_storm_left = STORM_LENGTH

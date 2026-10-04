@@ -293,6 +293,10 @@ func _tick_tourists(delta: float) -> void:
 # Up to this much difficulty the crowd follows the curve exactly -- the whole
 # of level 1 shift 1 sits below it, so its calibrated feel is untouched.
 const TOURIST_FULL_UNTIL := 1.75
+# The whole crowd, every level: at full strength there was too much going on
+# to enjoy -- hit, scoop, hit again. The first level goes quieter still (its
+# "beginner" settings in beaches.gd).
+const CROWD := 0.65
 
 
 func tourist_pressure() -> float:
@@ -303,9 +307,8 @@ func tourist_pressure() -> float:
 	# what ended almost every late shift. Now ~4x shift 1's rate at the very end
 	# of the campaign rather than ~9x.
 	var d := float(game.difficulty())
-	if d <= TOURIST_FULL_UNTIL:
-		return d
-	return TOURIST_FULL_UNTIL * sqrt(d / TOURIST_FULL_UNTIL)
+	var p := d if d <= TOURIST_FULL_UNTIL else TOURIST_FULL_UNTIL * sqrt(d / TOURIST_FULL_UNTIL)
+	return p * float(game.beginner().get("tourists", CROWD))
 
 
 # Tourist clothes, in degrees of hue: the sprites are drawn in pink (330) and
