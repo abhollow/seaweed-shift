@@ -51,6 +51,7 @@
 [ext_resource type="Texture2D" path="res://assets/sprites/twf3_f3.png" id="49_t"]
 
 [sub_resource type="RectangleShape2D" id="shape_tourist"]
+resource_local_to_scene = true
 size = Vector2(16, 24)
 
 [node name="Tourist" type="Area2D"]

@@ -29,11 +29,10 @@ var _ashore_t := 0.0
 var _seed := 0.0
 var _anim := 0.0
 
-# Art, if present: the raft seen from above, drawn at the mat's width with its
-# own proportions, rocking gently, over a code-drawn foam fringe so it sits IN
-# the water rather than on top of it. Falls back to the code drawing otherwise.
-const ART_PATH := "res://assets/sprites/sargassum_mat.png"
-var _tex: Texture2D
+# The raft seen from above, drawn at the mat's width with its own proportions,
+# rocking gently, over a code-drawn foam fringe so it sits IN the water rather
+# than on top of it.
+const ART := preload("res://assets/sprites/sargassum_mat.png")
 
 
 func configure(beach: Dictionary) -> void:
@@ -49,7 +48,6 @@ func configure(beach: Dictionary) -> void:
 	mat_x = -1.0
 	_ashore_t = 0.0
 	_next = mat_first
-	_tex = load(ART_PATH) if ResourceLoader.exists(ART_PATH) else null
 
 
 func piles_for(shift_index: int) -> int:
@@ -122,30 +120,16 @@ func _break_up() -> void:
 func _draw() -> void:
 	if not drifting_in():
 		return
-	# An irregular raft of brown-gold weed with a white fringe where it meets the
-	# water, rolling gently as it comes.
+	# A white fringe where the raft meets the water, rolling gently as it comes.
 	var c := Vector2(mat_x, mat_y)
 	var rim := PackedVector2Array()
-	var body := PackedVector2Array()
 	for i in 28:
 		var a := float(i) / 28.0 * TAU
 		var wob := 1.0 + 0.18 * sin(a * 3.0 + _seed) + 0.1 * sin(a * 7.0 + _seed * 2.0 + _anim)
-		var r := Vector2(cos(a) * mat_width * 0.5, sin(a) * mat_width * 0.22) * wob
-		rim.append(c + r * 1.08)
-		body.append(c + r)
+		rim.append(c + Vector2(cos(a) * mat_width * 0.5, sin(a) * mat_width * 0.22) * wob * 1.08)
 	draw_colored_polygon(rim, Color(1, 1, 1, 0.45))
-	if _tex != null:
-		var ts := _tex.get_size()
-		var sz := Vector2(mat_width, mat_width * ts.y / ts.x)
-		var rock := sin(_anim * 1.3) * 0.03
-		draw_set_transform(c + Vector2(0, sin(_anim * 1.7) * 1.5), rock, Vector2.ONE)
-		draw_texture_rect(_tex, Rect2(-sz * 0.5, sz), false)
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-		return
-	draw_colored_polygon(body, Color(0.55, 0.36, 0.12, 0.92))
-	for i in 46:
-		var a := fposmod(float(i) * 2.399, TAU)
-		var d := sqrt(fposmod(float(i) * 0.137, 1.0))
-		var q := c + Vector2(cos(a) * mat_width * 0.45, sin(a) * mat_width * 0.19) * d
-		var col := Color(0.86, 0.62, 0.22) if i % 3 else Color(0.38, 0.24, 0.07)
-		draw_rect(Rect2(q, Vector2(3, 3)), col)
+	var ts := ART.get_size()
+	var sz := Vector2(mat_width, mat_width * ts.y / ts.x)
+	draw_set_transform(c + Vector2(0, sin(_anim * 1.7) * 1.5), sin(_anim * 1.3) * 0.03, Vector2.ONE)
+	draw_texture_rect(ART, Rect2(-sz * 0.5, sz), false)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

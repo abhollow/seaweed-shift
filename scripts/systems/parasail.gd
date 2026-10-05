@@ -38,10 +38,10 @@ var _splash_at := Vector2.ZERO
 var _chute_lift := 0.0            # the chute bobs up when the weight goes
 var _anim := 0.0
 
-# Art, when it exists. The parasailer is an ordinary tourist sprite, tinted
-# like the crowd, so they match the people on the beach.
-const BOAT_ART := "res://assets/sprites/parasail_boat.png"
-const CANOPY_ART := "res://assets/sprites/parasail_canopy.png"
+# The boat and canopy are art; the parasailer is an ordinary tourist sprite,
+# tinted like the crowd, so they match the people on the beach.
+const BOAT_ART := preload("res://assets/sprites/parasail_boat.png")
+const CANOPY_ART := preload("res://assets/sprites/parasail_canopy.png")
 var _boat_spr: Sprite2D
 var _canopy_spr: Sprite2D
 var _flyer_spr: Sprite2D
@@ -62,11 +62,10 @@ func _ready() -> void:
 	_hide_all()
 
 
-func _sprite(path: String) -> Sprite2D:
+func _sprite(tex: Texture2D) -> Sprite2D:
 	var s := Sprite2D.new()
-	if ResourceLoader.exists(path):
-		s.texture = load(path)
-		s.scale = Vector2(2, 2)
+	s.texture = tex
+	s.scale = Vector2(2, 2)
 	add_child(s)
 	return s
 
@@ -172,17 +171,15 @@ func _let_go(chute: Vector2) -> void:
 func _place_sprites() -> void:
 	var towing := state == State.TOWING
 	var chute := chute_pos()
-	if _boat_spr.texture != null:
-		_boat_spr.visible = towing
-		_boat_spr.position = boat_pos()
-		# Pitching over the chop: nose up, nose down.
-		_boat_spr.rotation = sin(_anim * 4.3) * 0.09 * _dir
-		_boat_spr.flip_h = _dir < 0.0
-	if _canopy_spr.texture != null:
-		_canopy_spr.visible = towing
-		_canopy_spr.position = chute
-		# Swings a little on the wind, more once it is empty.
-		_canopy_spr.rotation = sin(_anim * (1.6 if _flying else 4.0)) * (0.05 if _flying else 0.14)
+	_boat_spr.visible = towing
+	_boat_spr.position = boat_pos()
+	# Pitching over the chop: nose up, nose down.
+	_boat_spr.rotation = sin(_anim * 4.3) * 0.09 * _dir
+	_boat_spr.flip_h = _dir < 0.0
+	_canopy_spr.visible = towing
+	_canopy_spr.position = chute
+	# Swings a little on the wind, more once it is empty.
+	_canopy_spr.rotation = sin(_anim * (1.6 if _flying else 4.0)) * (0.05 if _flying else 0.14)
 	_flyer_spr.visible = towing and (_flying or _splash_t < 0.0) and _flyer_spr.texture != null
 	if _flying:
 		_flyer_spr.position = chute + Vector2(0, HANG + sin(_anim * 2.0) * 1.5)
@@ -192,14 +189,14 @@ func _place_sprites() -> void:
 		_flyer_spr.rotation = _flyer_rot
 
 
-# ---- drawing: rope, harness, wake, splash -- and placeholders until art ----
+# ---- drawing: rope, harness, wake, splash ------------------------------------
 
 func _draw() -> void:
 	if state != State.TOWING:
 		return
 	var chute := chute_pos()
 	# The tow line leaves from the top of the mast at the stern.
-	var stern := boat_pos() + (Vector2(-_dir * 21.0, -20.0) if _boat_spr.texture != null else Vector2(-_dir * 18.0, -4.0))
+	var stern := boat_pos() + Vector2(-_dir * 21.0, -20.0)
 	var harness := chute + Vector2(0, HANG - 10.0)
 	var rope := Color(0.95, 0.95, 0.9, 0.85)
 	# The tow line, sagging a little.
@@ -207,14 +204,9 @@ func _draw() -> void:
 	draw_polyline(PackedVector2Array([stern, mid, harness]), rope, 1.0)
 	# Rigging from the canopy down to the harness ring.
 	for s in [-1.0, 1.0]:
-		# From where the art's own lines end, or the placeholder dome's rim.
-		var from := chute + (Vector2(s * 20.0, 20.0) if _canopy_spr.texture != null else Vector2(s * 28.0, -2.0))
-		draw_line(from, harness, rope, 1.0)
+		# From where the art's own lines end.
+		draw_line(chute + Vector2(s * 20.0, 20.0), harness, rope, 1.0)
 	_draw_wake()
-	if _canopy_spr.texture == null:
-		_draw_canopy(chute)
-	if _boat_spr.texture == null:
-		_draw_boat()
 	if _splash_t >= 0.0 and _splash_t <= SPLASH_LEN:
 		_draw_splash(clampf(_splash_t / SPLASH_LEN, 0.0, 1.0))
 
@@ -226,28 +218,6 @@ func _draw_wake() -> void:
 		var spread := 3.0 + i * 3.0
 		draw_line(back + Vector2(0, -spread), back + Vector2(-_dir * 8.0, -spread - 2), Color(foam, 0.7 - i * 0.1), 2.0)
 		draw_line(back + Vector2(0, spread), back + Vector2(-_dir * 8.0, spread + 2), Color(foam, 0.7 - i * 0.1), 2.0)
-
-
-func _draw_boat() -> void:
-	var b := boat_pos()
-	var d := _dir
-	var hull := PackedVector2Array([b + Vector2(-20 * d, -6), b + Vector2(16 * d, -6),
-		b + Vector2(26 * d, 0), b + Vector2(16 * d, 6), b + Vector2(-20 * d, 6)])
-	draw_colored_polygon(hull, Color(0.96, 0.96, 0.98))
-	draw_polyline(hull + PackedVector2Array([hull[0]]), Color(0.2, 0.3, 0.45), 1.0)
-	draw_rect(Rect2(b + Vector2(-8, -5), Vector2(14, 10)), Color(0.15, 0.45, 0.85))
-
-
-func _draw_canopy(c: Vector2) -> void:
-	var cols := [Color(0.95, 0.25, 0.2), Color(1.0, 0.85, 0.2), Color(0.2, 0.55, 0.95), Color(0.3, 0.85, 0.4)]
-	for i in 8:
-		var a0 := PI + PI * float(i) / 8.0
-		var a1 := PI + PI * float(i + 1) / 8.0
-		var pts := PackedVector2Array([c])
-		for k in 5:
-			var a := lerpf(a0, a1, float(k) / 4.0)
-			pts.append(c + Vector2(cos(a) * 30.0, sin(a) * 18.0))
-		draw_colored_polygon(pts, cols[i % cols.size()])
 
 
 func _draw_splash(p: float) -> void:

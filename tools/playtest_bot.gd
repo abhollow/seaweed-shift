@@ -176,7 +176,7 @@ func _skip_shift() -> bool:
 func _reset_stats(shift: int, attempt: int) -> void:
 	st = {
 		"kind": "shift", "level": level, "shift": shift + 1, "attempt": attempt,
-		"goal": int(game.current_level()["credits"]),
+		"goal": game.shift_target(),
 		"owned_start": game.owned.keys(),
 		"credits_start": game.credits,
 		"hits": 0, "loads_dropped": 0, "hit_log": [], "buys": [], "storm_s": 0.0, "happy_s": 0.0,

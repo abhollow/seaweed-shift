@@ -82,7 +82,6 @@ var _pool: Array[AudioStreamPlayer] = []
 var _keys: Array[String] = []
 var _started: Array[float] = []
 var _next := 0
-var _music: AudioStreamPlayer
 var _event: AudioStreamPlayer
 var _event_base_db := -6.0
 var _event_tw: Tween
@@ -149,11 +148,6 @@ func _ready() -> void:
 		mp.finished.connect(_on_track_finished.bind(i))
 		add_child(mp)
 		_players.append(mp)
-	_music = _players[0]
-
-	# So music and ducking tweens keep running while the shop or the
-	# shift-complete panel has the tree paused.
-	process_mode = Node.PROCESS_MODE_ALWAYS
 
 
 # Per-cue level trim, applied on top of whatever a call site asks for.
@@ -277,10 +271,6 @@ func stop_ambience(fade: float = 1.6) -> void:
 	_amb_tw.tween_callback(_amb.stop)
 
 
-func play_music(path: String, volume_db: float = -8.0) -> void:
-	play_playlist([path], volume_db)
-
-
 func play_playlist(paths, volume_db: float = -8.0) -> void:
 	if paths == null:
 		return
@@ -385,7 +375,6 @@ func _begin_track(idx: int, fade: float) -> void:
 	p.stream_paused = _music_paused
 
 	_active = next_i
-	_music = p
 	_play_idx = idx
 	music_path = path
 	_crossfading = false
@@ -499,19 +488,3 @@ func _tween_bus(bus_name: String, to_db: float, time: float) -> void:
 func restore_music(time: float = 1.4) -> void:
 	restore_music_level(time)
 
-
-func music_playing() -> bool:
-	return current_player().playing
-
-
-func stop_music() -> void:
-	music_path = ""
-	_playlist.clear()
-	for p in _players:
-		p.stop()
-
-
-func set_bus_volume(bus_name: String, linear: float) -> void:
-	var idx := AudioServer.get_bus_index(bus_name)
-	if idx >= 0:
-		AudioServer.set_bus_volume_db(idx, linear_to_db(clampf(linear, 0.0001, 1.0)))

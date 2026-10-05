@@ -22,10 +22,14 @@ const REP_GOOD := 70.0         # default target if a shift doesn't name one
 var game
 
 var value := 100.0
-var held := 0.0                # seconds continuously at or above target
 var target := REP_GOOD
 var rotten_piles := 0
 var zero_time := 0.0
+# Gathered by shore_mess(), which already visits every beached pile once a
+# frame, so nothing else has to scan the beach for them: where the rotten piles
+# are (rot spreads from them) and how many units sit in the VIP zone.
+var rotten_at := PackedVector2Array()
+var vip_count := 0
 
 var _was_good := true
 
@@ -33,7 +37,6 @@ var _was_good := true
 func reset(new_target: float) -> void:
 	target = new_target
 	value = 100.0
-	held = 0.0
 	rotten_piles = 0
 	_was_good = true
 
@@ -56,11 +59,6 @@ func tick(delta: float) -> void:
 		zero_time = 0.0
 
 	var good := value >= target
-	if good:
-		held += delta
-	else:
-		held = 0.0
-
 	# Fire once on the way down only -- a tone every frame below target would be
 	# unbearable, and a tone on recovery would reward the wrong moment.
 	if _was_good and not good:
@@ -81,6 +79,8 @@ func shore_mess() -> float:
 	# still drifting are the ocean's problem, and kelp is out of sight.
 	var mess := 0.0
 	rotten_piles = 0
+	rotten_at.clear()
+	vip_count = 0
 	for c in game.world.get_children():
 		if not (c is Seaweed):
 			continue
@@ -94,7 +94,9 @@ func shore_mess() -> float:
 		# Seaweed in front of a beach club's VIP guests counts extra.
 		if game.in_vip(sw.position):
 			w *= game.vip_weight
+			vip_count += sw.units
 		mess += float(sw.units) * w
 		if sw.is_rotten():
 			rotten_piles += 1
+			rotten_at.append(sw.position)
 	return mess

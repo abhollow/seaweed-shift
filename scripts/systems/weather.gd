@@ -28,14 +28,6 @@ const YELL_COUNT := 4
 
 const TINT_CLEAR := Color(0.20, 0.25, 0.45, 0.0)
 const TINT_STORM := Color(0.20, 0.25, 0.45, 0.35)
-# Happy Hour no longer tints orange -- the scene is drained instead, so the
-# mirrorball's white flecks are the only bright thing on screen.
-const TINT_HAPPY := Color(0.20, 0.25, 0.45, 0.0)
-# No colour grade during Happy Hour. Oversaturating pushed the orange tourists
-# to the point where they were the only thing that changed, which read as a bug
-# rather than a mood. The mirrorball and its sweeping flecks carry the event.
-const HAPPY_SATURATION := 1.0
-const HAPPY_EXPOSURE := 0.0
 
 const STORM_TRACK := "res://audio/storm.mp3"
 const HAPPY_TRACK := "res://audio/happy_hour.mp3"

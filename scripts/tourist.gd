@@ -235,7 +235,6 @@ func _process(delta: float) -> void:
 		var k := minf(_knock_left, _knock_speed * delta)
 		position -= _out * k
 		_knock_left -= k
-		rotation = sin(_knock_left * 0.2) * 0.3
 	_phase += delta * 3.5
 	_tick_walk(delta)
 

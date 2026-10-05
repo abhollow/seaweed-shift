@@ -65,14 +65,16 @@ var _popping := false
 # never reads as rot.
 var sargassum := false
 const SARGASSUM_SHADER := preload("res://shaders/sargassum.gdshader")
+static var _sargassum_mat: ShaderMaterial    # shared: the shader has no uniforms
 
 
 func make_sargassum() -> void:
 	sargassum = true
 	if _sprite != null:
-		var mat := ShaderMaterial.new()
-		mat.shader = SARGASSUM_SHADER
-		_sprite.material = mat
+		if _sargassum_mat == null:
+			_sargassum_mat = ShaderMaterial.new()
+			_sargassum_mat.shader = SARGASSUM_SHADER
+		_sprite.material = _sargassum_mat
 
 
 func weight() -> int:
@@ -148,13 +150,10 @@ func _spread_factor() -> float:
 	# has started browning, so a fresh drop is never instantly doomed.
 	if game == null or age < ROT_WARN or is_rotten():
 		return 1.0
-	for c in game.world.get_children():
-		if c == self or not (c is Seaweed):
-			continue
-		var o := c as Seaweed
-		if o.drifting or o.kelp or not o.is_rotten():
-			continue
-		if position.distance_to(o.position) < ROT_SPREAD_RADIUS:
+	# This frame's rotten beached piles, gathered once by Reputation rather than
+	# every browning pile scanning the whole beach (that was O(n^2) a frame).
+	for p in game.rep.rotten_at:
+		if position.distance_to(p) < ROT_SPREAD_RADIUS:
 			return ROT_SPREAD_RATE
 	return 1.0
 
@@ -349,6 +348,8 @@ func _process(delta: float) -> void:
 	_tick_sway(delta)
 	if drifting:
 		_do_drift(delta)
+		if is_queued_for_deletion():
+			return       # merged into a pile: that pile pays for it now
 	elif not kelp:
 		# Beached seaweed rots where it sits. Kelp is alive and rooted, so it
 		# never spoils -- that is part of why the deep is worth the trip.

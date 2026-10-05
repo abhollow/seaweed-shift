@@ -444,6 +444,7 @@ func _build_ui() -> void:
 	_tint.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_tint.color = Weather.TINT_CLEAR
 	_tint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tint.visible = false        # clear: a full-screen blend of nothing
 	base.add_child(_tint)
 
 	# Colour grade: drains the scene during Happy Hour. Must sit above the world
@@ -456,6 +457,10 @@ func _build_ui() -> void:
 	grade_mat.set_shader_parameter("saturation", 1.0)
 	grade_mat.set_shader_parameter("exposure", 0.0)
 	_grade.material = grade_mat
+	# Hidden while neutral: it reads back the whole screen and redraws it every
+	# frame -- about the costliest thing a 2D frame can do on a phone -- and at
+	# saturation 1, exposure 0 it changes nothing.
+	_grade.visible = false
 	base.add_child(_grade)
 
 	# Lightning flashes the whole screen, so it lives beside the tint rather than
@@ -557,7 +562,7 @@ func _build_systems() -> void:
 	holbox.game = self
 	world.add_child(holbox)
 
-	# The stream's flow flecks and bridge sit on the sand, under the sprites.
+	# The stream's flow flecks sit on the sand, under the sprites.
 	stream = Stream.new()
 	stream.game = self
 	stream.z_index = -2
@@ -766,10 +771,14 @@ func gentle_storm() -> bool:
 	return not owned.has("jacket") and not owned.has("backpack")
 
 
+const NOT_BEGINNER := {}
+
+
 func beginner() -> Dictionary:
 	# The first level's forgiving settings (see Cancun in beaches.gd); empty
-	# everywhere else.
-	return Beaches.for_level(level).get("beginner", {})
+	# everywhere else. A shared constant, not a fresh {} per call: drifting
+	# seaweed asks every frame in a storm.
+	return Beaches.for_level(level).get("beginner", NOT_BEGINNER)
 
 
 func storm_every() -> float:
@@ -869,6 +878,10 @@ func shift_target() -> int:
 	for id in RETAINED_TARGET:
 		if retained.has(id):
 			t *= float(RETAINED_TARGET[id][i])
+	# And a beach's own stretch for shifts that otherwise run short.
+	var scale: Array = Beaches.for_level(level).get("target_scale", [])
+	if i < scale.size():
+		t *= float(scale[i])
 	# Round to 50 so the HUD target reads as a deliberate number.
 	return int(round(t / 50.0)) * 50
 
@@ -907,20 +920,25 @@ func begin_level() -> void:
 
 	weather.reset()
 	spawner.reset()
+	var beach := Beaches.for_level(level)
 	# Every shift of the finale starts calm; the hurricane builds again.
 	if hurricane != null:
-		hurricane.configure(Beaches.for_level(level))
+		hurricane.configure(beach)
 	# Once a level, in its chosen shift.
 	if crab != null:
-		crab.configure(Beaches.for_level(level), level_index)
+		crab.configure(beach, level_index)
 	if parasail != null:
-		parasail.configure(Beaches.for_level(level), level_index)
-	# Level moments start over every shift.
+		parasail.configure(beach, level_index)
+	# Level moments start over every shift. Holbox's events and Akumal's
+	# hatching used to carry over into a retry or the next shift -- a hatching
+	# then docked the new shift's reputation for a beach that had been wiped.
 	if veracruz != null:
-		veracruz.configure(Beaches.for_level(level))
-		cozumel.configure(Beaches.for_level(level))
-		kayaks.configure(Beaches.for_level(level))
-		flamingos.configure(Beaches.for_level(level), level_index)
+		veracruz.configure(beach)
+		cozumel.configure(beach)
+		kayaks.configure(beach)
+		flamingos.configure(beach, level_index)
+		holbox.configure(beach)
+		hatch.configure(beach)
 	if gull != null and gull.enabled:
 		gull.reset()
 
@@ -972,12 +990,7 @@ func retry_shift() -> void:
 	credits = int(_shift_start.get("credits", 0))
 	owned = (_shift_start.get("owned", {}) as Dictionary).duplicate()
 	level_index = int(_shift_start.get("level_index", level_index))
-
-	_reset_player_stats()
-	for up in Upgrades.LIST:
-		if owned.has(String(up["id"])):
-			apply_upgrade(String(up["id"]))
-	_recompute_carry()
+	_reapply_owned()
 
 	level_panel.visible = false
 	get_tree().paused = false
@@ -985,6 +998,16 @@ func retry_shift() -> void:
 	level_failed = false
 	begin_level()
 	_save_progress()
+
+
+func _reapply_owned() -> void:
+	# Rebuild the worker from scratch, then from every owned upgrade: a retry,
+	# a new level and a loaded save all come back through here.
+	_reset_player_stats()
+	for up in Upgrades.LIST:
+		if owned.has(String(up["id"])):
+			apply_upgrade(String(up["id"]))
+	_recompute_carry()
 
 
 func _reset_player_stats() -> void:
@@ -1278,12 +1301,7 @@ func retain_and_advance(id: String) -> void:
 	credits = 0
 	level_index = 0
 	owned = retained.duplicate()
-
-	_reset_player_stats()
-	for up in Upgrades.LIST:
-		if owned.has(String(up["id"])):
-			apply_upgrade(String(up["id"]))
-	_recompute_carry()
+	_reapply_owned()
 
 	level_panel.visible = false
 	get_tree().paused = false
@@ -1300,13 +1318,7 @@ func in_vip(pos: Vector2) -> bool:
 
 
 func vip_units() -> int:
-	var n := 0
-	for c in world.get_children():
-		if c is Seaweed:
-			var sw := c as Seaweed
-			if not sw.kelp and not sw.drifting and in_vip(sw.position):
-				n += sw.units
-	return n
+	return rep.vip_count      # counted by this frame's shore_mess()
 
 
 func _play_level_music() -> void:
@@ -1515,6 +1527,11 @@ func apply_upgrade(id: String) -> void:
 	_recompute_carry()
 
 
+# Tourist hitboxes for the vehicles; see the set_body() calls below.
+const VEHICLE_HIT_TRACTOR := Vector2(28, 28)
+const VEHICLE_HIT_HOPPER := Vector2(28, 42)
+
+
 func _recompute_carry() -> void:
 	# A null slot means the PNG did not import -- usually a stale .godot folder
 	# after unzipping over an existing project. Silently drawing the placeholder
@@ -1541,16 +1558,19 @@ func _recompute_carry() -> void:
 
 	# Five visual states, strictly ordered. The backpack is gated behind the rake
 	# in upgrades.gd, so this chain can never show gear out of sequence.
-	# set_body(hitbox, artwork, ...) -- the hitboxes are unchanged from the
-	# tuning that already felt right; only the drawn size grew.
+	# set_body(hitbox, artwork, ...) -- only the drawn size grew from the
+	# original tuning. The vehicles' hitboxes are trimmed a little (32x48 and
+	# 32x32 originally): the tractor took 3-4 tourist hits a minute against ~2
+	# on foot, and grazing someone's elbow with the corner of a hopper felt
+	# unfair. Their rake still reaches from the full footprint (last argument).
 	if owned.has("hopper"):
-		player.set_body(Vector2(32, 48), Vector2(60, 84),
+		player.set_body(VEHICLE_HIT_HOPPER, Vector2(60, 84),
 			Color(0.80, 0.40, 0.22), player.tex_hopper, player.tex_hopper_back,
-			player.tex_hopper_wade, player.tex_hopper_wade_back)
+			player.tex_hopper_wade, player.tex_hopper_wade_back, Vector2(32, 48))
 	elif owned.has("tractor"):
-		player.set_body(Vector2(32, 32), Vector2(60, 60),
+		player.set_body(VEHICLE_HIT_TRACTOR, Vector2(60, 60),
 			Color(0.85, 0.45, 0.25), player.tex_tractor, player.tex_tractor_back,
-			player.tex_tractor_wade, player.tex_tractor_wade_back)
+			player.tex_tractor_wade, player.tex_tractor_wade_back, Vector2(32, 32))
 	elif owned.has("backpack"):
 		player.set_body(Vector2(24, 32), Vector2(48, 60),
 			Color(0.92, 0.70, 0.30), player.tex_backpack, player.tex_backpack_back,
@@ -1565,18 +1585,6 @@ func _recompute_carry() -> void:
 		player.set_body(Vector2(24, 24), Vector2(48, 48),
 			Color(0.88, 0.72, 0.42), player.tex_bare, player.tex_bare_back,
 			player.tex_bare_wade, player.tex_bare_wade_back)
-
-
-func reset_all_progress() -> void:
-	SaveGame.wipe()
-	credits = 0
-	owned.clear()
-	level_index = 0
-	free_play = false
-	_reset_player_stats()
-	_recompute_carry()
-	toggle_shop()
-	begin_level()
 
 
 # =============================================================================
@@ -1605,10 +1613,9 @@ func _load_progress() -> void:
 	var saved_owned = data.get("owned", {})
 	if typeof(saved_owned) == TYPE_DICTIONARY:
 		for up in Upgrades.LIST:
-			var id := String(up["id"])
-			if saved_owned.has(id):
-				owned[id] = true
-				apply_upgrade(id)
+			if saved_owned.has(String(up["id"])):
+				owned[String(up["id"])] = true
+	_reapply_owned()
 
 
 func _save_progress() -> void:
@@ -1652,7 +1659,7 @@ func _on_bay_exited(body: Node2D) -> void:
 		(body as Player).in_safe_zone = false
 
 
-func on_player_hit(lost_units: int, lost_value: int, at: Vector2) -> void:
+func on_player_hit(lost_units: int, at: Vector2) -> void:
 	if lost_units <= 0:
 		sfx("hit", 1.25, -6.0)
 		shake(4.0, 0.22)
@@ -1836,21 +1843,19 @@ func grade(saturation: float, exposure: float, time: float = 1.0) -> void:
 	_grade_saturation = saturation
 	_grade_exposure = exposure
 
+	if not _grade_neutral():
+		_grade.visible = true
 	var tw := create_tween()
 	tw.set_parallel(true)
 	tw.tween_method(func(v: float): mat.set_shader_parameter("saturation", v),
 		from_sat, saturation, time)
 	tw.tween_method(func(v: float): mat.set_shader_parameter("exposure", v),
 		from_exp, exposure, time)
+	tw.finished.connect(func(): _grade.visible = not _grade_neutral())
 
 
-func pulse_grade(extra: float) -> void:
-	# Called every frame during Happy Hour to throb the exposure on top of
-	# whatever grade() settled on. Kept separate so the tween and the throb
-	# can't fight over the same uniform.
-	var mat := _grade.material as ShaderMaterial
-	if mat != null:
-		mat.set_shader_parameter("exposure", _grade_exposure + extra)
+func _grade_neutral() -> bool:
+	return is_equal_approx(_grade_saturation, 1.0) and is_zero_approx(_grade_exposure)
 
 
 func flash(peak: float = 0.6, up: float = 0.04, down: float = 0.34) -> void:
@@ -1862,5 +1867,8 @@ func flash(peak: float = 0.6, up: float = 0.04, down: float = 0.34) -> void:
 
 
 func tween_tint(c: Color) -> void:
+	# Shown only while it has colour; fading back to clear hides it at the end.
+	_tint.visible = true
 	var tw := create_tween()
 	tw.tween_property(_tint, "color", c, 0.8)
+	tw.finished.connect(func(): _tint.visible = _tint.color.a > 0.001)

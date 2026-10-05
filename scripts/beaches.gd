@@ -264,6 +264,10 @@ const LIST := {
 	},
 	7: {
 		"name": "Puerto Morelos",
+		# Later shifts here ran short (kept gear makes them fast): the credit
+		# target per shift is scaled to bring shifts 3-4 nearer five minutes.
+		# See Game.shift_target().
+		"target_scale": [1.0, 1.0, 1.35, 1.15],
 		"tourists": "blue",  # most of the crowd wears this; see Spawner.TOURIST_COLOURS
 		# Just for laughs, once a level in shift 2 (0-based below): a parasailer
 		# drops out of the sky into the sea. See systems/parasail.gd.
@@ -310,6 +314,10 @@ const LIST := {
 	},
 	8: {
 		"name": "Mahahual",
+		# Later shifts here ran short (kept gear makes them fast): the credit
+		# target per shift is scaled to bring shifts 3-4 nearer five minutes.
+		# See Game.shift_target().
+		"target_scale": [1.0, 1.0, 1.75, 1.3],
 		"tourists": "purple",  # most of the crowd wears this; see Spawner.TOURIST_COLOURS
 		# Once a level, in shift 2 (0-based below), 35-80s in: a crab digs out of
 		# the sand and chases the worker. See systems/crab.gd.
@@ -345,6 +353,10 @@ const LIST := {
 	},
 	9: {
 		"name": "Akumal",
+		# Later shifts here ran short (kept gear makes them fast): the credit
+		# target per shift is scaled to bring shifts 3-4 nearer five minutes.
+		# See Game.shift_target().
+		"target_scale": [1.0, 1.0, 1.3, 1.15],
 		"bin_offset": -4.0,
 		"tourists": "aqua",  # most of the crowd wears this; see Spawner.TOURIST_COLOURS
 		"tagline": "The bay of turtles. Work around the nests -- and when they hatch, clear the way to the sea.",
@@ -375,6 +387,10 @@ const LIST := {
 	},
 	10: {
 		"name": "Tulum",
+		# Later shifts here ran short (kept gear makes them fast): the credit
+		# target per shift is scaled to bring shifts 3-4 nearer five minutes.
+		# See Game.shift_target().
+		"target_scale": [1.0, 1.0, 1.55, 1.3],
 		"tourists": "pink",  # most of the crowd wears this; see Spawner.TOURIST_COLOURS
 		# Just for laughs, once a level in shift 2 (0-based below): a parasailer
 		# drops out of the sky into the sea. See systems/parasail.gd.

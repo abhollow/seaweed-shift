@@ -35,12 +35,11 @@ var _result_t := 0.0
 var _result := ""
 var _anim := 0.0
 
-# Art, if present: two crawl frames, head pointing DOWN (toward the sea), drawn
-# at 2x. Each hatchling alternates between them on its own offset, so the line
-# doesn't paddle in unison. Falls back to the code drawing otherwise.
-const FRAME_PATHS := ["res://assets/sprites/hatchling_f0.png", "res://assets/sprites/hatchling_f1.png"]
+# Two crawl frames, head pointing DOWN (toward the sea), drawn at 2x. Each
+# hatchling alternates between them on its own offset, so the line doesn't
+# paddle in unison.
+const FRAMES := [preload("res://assets/sprites/hatchling_f0.png"), preload("res://assets/sprites/hatchling_f1.png")]
 const CRAWL_FPS := 6.0
-var _frames: Array = []
 
 
 func configure(beach: Dictionary) -> void:
@@ -58,10 +57,7 @@ func configure(beach: Dictionary) -> void:
 	_next = first
 	_warned = false
 	hatched = 0
-	_frames.clear()
-	for path in FRAME_PATHS:
-		if ResourceLoader.exists(path):
-			_frames.append(load(path))
+	queue_redraw()
 
 
 func hatching() -> bool:
@@ -122,12 +118,25 @@ func _plant_seaweed() -> void:
 
 func blocked(p: Vector2) -> bool:
 	# Is a seaweed pile in the way of a hatchling at p?
+	return _blocked_by(p, _piles())
+
+
+func _piles() -> PackedVector3Array:
+	# Every beached pile as (x, y, reach) -- gathered once a tick, not once per
+	# hatchling per tick.
+	var out := PackedVector3Array()
 	for c in game.world.get_children():
 		if c is Seaweed:
 			var sw := c as Seaweed
-			if not sw.drifting and not sw.is_queued_for_deletion() and sw.units > 0 \
-					and p.distance_to(sw.position) < sw._size * 0.45 + 3.0:
-				return true
+			if not sw.drifting and not sw.is_queued_for_deletion() and sw.units > 0:
+				out.append(Vector3(sw.position.x, sw.position.y, sw._size * 0.45 + 3.0))
+	return out
+
+
+static func _blocked_by(p: Vector2, piles: PackedVector3Array) -> bool:
+	for q in piles:
+		if p.distance_to(Vector2(q.x, q.y)) < q.z:
+			return true
 	return false
 
 
@@ -150,6 +159,7 @@ func tick(delta: float) -> void:
 	# with every hatchling blocked ended on its first tick and wrote them all
 	# off before the player could clear the way.
 	var remaining := 0
+	var piles := _piles()
 	for h in turtles:
 		if h["done"]:
 			continue
@@ -158,7 +168,7 @@ func tick(delta: float) -> void:
 		# Wandering down the beach, not marching in a line.
 		var wander := sin(_anim * float(h["weave"]) + float(h["wig"])) * float(h["sway"]) + float(h["drift"])
 		var step := Vector2(wander, speed) * delta
-		if blocked(p + step * 4.0):
+		if _blocked_by(p + step * 4.0, piles):
 			continue                      # waits, flippers going, until the way clears
 		p += step
 		# Round any other nest on the way down, never through it.
@@ -201,19 +211,6 @@ func _draw() -> void:
 		if h["done"]:
 			continue
 		var p: Vector2 = h["pos"]
-		if not _frames.is_empty():
-			var fi := int(_anim * CRAWL_FPS + float(h["wig"]) * 3.0) % _frames.size()
-			var tex: Texture2D = _frames[fi]
-			var sz := tex.get_size() * 2.0
-			draw_texture_rect(tex, Rect2(p - sz * 0.5, sz), false)
-			continue
-		var flap := sin(_anim * 12.0 + float(h["wig"])) * 1.5
-		var shell := Color(0.25, 0.22, 0.14)
-		var skin := Color(0.38, 0.33, 0.22)
-		draw_rect(Rect2(p + Vector2(-3, -4), Vector2(6, 7)), shell)
-		draw_rect(Rect2(p + Vector2(-2, -3), Vector2(4, 5)), Color(0.33, 0.29, 0.18))
-		draw_rect(Rect2(p + Vector2(-1, 3), Vector2(2, 2)), skin)           # head, toward the sea
-		draw_line(p + Vector2(-3, -1), p + Vector2(-6, -1 + flap), skin, 1.5)
-		draw_line(p + Vector2(3, -1), p + Vector2(6, -1 - flap), skin, 1.5)
-		draw_line(p + Vector2(-3, 2), p + Vector2(-5, 3 - flap), skin, 1.5)
-		draw_line(p + Vector2(3, 2), p + Vector2(5, 3 + flap), skin, 1.5)
+		var tex: Texture2D = FRAMES[int(_anim * CRAWL_FPS + float(h["wig"]) * 3.0) % FRAMES.size()]
+		var sz := tex.get_size() * 2.0
+		draw_texture_rect(tex, Rect2(p - sz * 0.5, sz), false)

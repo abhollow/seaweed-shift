@@ -42,6 +42,7 @@
 [ext_resource type="Texture2D" path="res://assets/sprites/sea_rot2_f0.png" id="40_rot20"]
 
 [sub_resource type="RectangleShape2D" id="shape_seaweed"]
+resource_local_to_scene = true
 size = Vector2(16, 16)
 
 [node name="Seaweed" type="Area2D"]

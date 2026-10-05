@@ -21,13 +21,11 @@ const POST_DARK := Color(0.40, 0.28, 0.10)
 const TINT := Color(1.0, 0.86, 0.45, 0.07)
 const POST_GAP := 26.0
 
-# Uses assets/sprites/vip_sign.png at the head of the rope if present (drawn at
-# 2x); otherwise a plaque drawn in code.
-const SIGN_PATH := "res://assets/sprites/vip_sign.png"
+# The VIP sign at the head of the rope, drawn at 2x.
+const SIGN := preload("res://assets/sprites/vip_sign.png")
 
 var game
 var rect := Rect2()
-var _sign: Texture2D
 var _alert := 0.0
 var _t := 0.0
 
@@ -35,7 +33,6 @@ var _t := 0.0
 func configure(r: Rect2) -> void:
 	rect = r
 	visible = r.size.x > 0.0
-	_sign = load(SIGN_PATH) if ResourceLoader.exists(SIGN_PATH) else null
 	queue_redraw()
 
 
@@ -44,8 +41,11 @@ func _process(delta: float) -> void:
 		return
 	_t = fposmod(_t + delta * 5.0, TAU)
 	var want := 1.0 if game.vip_units() > 0 else 0.0
+	var was := _alert
 	_alert = move_toward(_alert, want, delta * 3.0)
-	queue_redraw()
+	# Only the alert pulse animates; a calm rope never changes.
+	if _alert > 0.0 or was > 0.0:
+		queue_redraw()
 
 
 func _draw() -> void:
@@ -75,13 +75,6 @@ func _draw() -> void:
 		draw_rect(Rect2(l - 1.0, y - 5.0, 2.0, 6.0), POST)
 		draw_circle(Vector2(l, y - 5.0), 2.2, POST)
 		y += POST_GAP
-	# The VIP sign at the head of the rope: the chosen art, or a coded plaque.
-	if _sign != null:
-		var sz := _sign.get_size() * 2.0
-		draw_texture_rect(_sign, Rect2(Vector2(l + 4.0, top - sz.y * 0.35), sz), false)
-		return
-	var plaque := Rect2(l + 5.0, top - 2.0, 24.0, 11.0)
-	draw_rect(plaque, POST_DARK)
-	draw_rect(plaque.grow(-1.0), Color(0.12, 0.05, 0.06))
-	draw_string(ThemeDB.fallback_font, Vector2(plaque.position.x + 3.0, plaque.end.y - 2.5),
-		"VIP", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, POST)
+	# The VIP sign at the head of the rope.
+	var sz := SIGN.get_size() * 2.0
+	draw_texture_rect(SIGN, Rect2(Vector2(l + 4.0, top - sz.y * 0.35), sz), false)

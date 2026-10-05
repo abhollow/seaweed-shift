@@ -33,22 +33,9 @@ var _anim := 0.0
 var _facing_left := false
 
 # Art, when it exists: flying (side view, facing right) and perched.
-var _fly: Array = []
-var _perch: Array = []
-
-
-func _ready() -> void:
-	_fly = _load_frames("seagull_fly_f%d")
-	_perch = _load_frames("seagull_perch_f%d")
-
-
-func _load_frames(pattern: String) -> Array:
-	var out := []
-	for i in 8:
-		var path := "res://assets/sprites/" + (pattern % i) + ".png"
-		if ResourceLoader.exists(path):
-			out.append(load(path))
-	return out
+const FLY := [preload("res://assets/sprites/seagull_fly_f0.png"), preload("res://assets/sprites/seagull_fly_f1.png"),
+	preload("res://assets/sprites/seagull_fly_f2.png"), preload("res://assets/sprites/seagull_fly_f3.png")]
+const PERCH := [preload("res://assets/sprites/seagull_perch_f0.png"), preload("res://assets/sprites/seagull_perch_f1.png")]
 
 
 func set_enabled(on: bool) -> void:
@@ -131,8 +118,11 @@ func _fly_to(p: Vector2, delta: float) -> bool:
 	return false
 
 
-func _alive(sw: Seaweed) -> bool:
-	return sw != null and is_instance_valid(sw) and not sw.is_queued_for_deletion() \
+func _alive(sw) -> bool:
+	# Untyped on purpose: the target is often freed (the worker scooped it), and
+	# a freed object passed to a Seaweed-typed argument is a script error that
+	# aborted the tick -- the gull then hung over the empty spot all shift.
+	return is_instance_valid(sw) and not sw.is_queued_for_deletion() \
 		and not sw._popping and sw.units > 0
 
 
@@ -172,43 +162,18 @@ func _worst_rot() -> Seaweed:
 func _draw() -> void:
 	if not enabled:
 		return
-	var flying := state != State.PERCHED
-	var set_: Array = _fly if flying else _perch
-	if not set_.is_empty():
-		# Perched it mostly stands still, with a squawk every few seconds.
-		var f := _flight_frame(set_.size()) if flying \
-			else (1 if fmod(_anim, 3.0) > 2.6 and set_.size() > 1 else 0)
-		var tex: Texture2D = set_[f]
-		var sz := tex.get_size() * 2.0
-		draw_set_transform(pos, 0.0, Vector2(-1.0 if _facing_left else 1.0, 1.0))
-		draw_texture_rect(tex, Rect2(-sz * 0.5, sz), false)
-		draw_set_transform(Vector2.ZERO)
-	else:
-		_draw_placeholder(flying)
+	# Perched it mostly stands still, with a squawk every few seconds.
+	var tex: Texture2D = FLY[_flight_frame(FLY.size())] if state != State.PERCHED \
+		else PERCH[1 if fmod(_anim, 3.0) > 2.6 else 0]
+	var sz := tex.get_size() * 2.0
+	draw_set_transform(pos, 0.0, Vector2(-1.0 if _facing_left else 1.0, 1.0))
+	draw_texture_rect(tex, Rect2(-sz * 0.5, sz), false)
+	draw_set_transform(Vector2.ZERO)
 	if carrying > 0 or state == State.PICKING:
 		# A beakful of brown weed dangling under it.
-		var reach := 16.0 if not _fly.is_empty() else 5.0
-		var beak := pos + Vector2(-reach if _facing_left else reach, 3.0)
+		var beak := pos + Vector2(-16.0 if _facing_left else 16.0, 3.0)
 		draw_circle(beak + Vector2(0, 2), 2.5, Color(0.40, 0.30, 0.13))
 		draw_line(beak, beak + Vector2(0, 5), Color(0.35, 0.27, 0.12), 1.5)
-
-
-func _draw_placeholder(flying: bool) -> void:
-	var s := -1.0 if _facing_left else 1.0
-	var white := Color(0.97, 0.97, 0.97)
-	var grey := Color(0.62, 0.66, 0.72)
-	if flying:
-		var flap := sin(_anim * FLAP_FPS * 1.6) * 5.0
-		draw_line(pos, pos + Vector2(-8, -3 - flap), grey, 2.5)
-		draw_line(pos, pos + Vector2(8, -3 - flap), grey, 2.5)
-	draw_set_transform(pos, 0.0, Vector2(1.0, 0.7))
-	draw_circle(Vector2.ZERO, 4.5, white)
-	draw_set_transform(Vector2.ZERO)
-	draw_circle(pos + Vector2(4.0 * s, -2.5), 2.5, white)
-	draw_line(pos + Vector2(6.0 * s, -2.5), pos + Vector2(8.5 * s, -2.0), Color(1.0, 0.7, 0.15), 1.5)
-	draw_circle(pos + Vector2(4.5 * s, -3.2), 0.7, Color(0.05, 0.05, 0.05))
-	if not flying:
-		draw_line(pos + Vector2(-5.0 * s, -1), pos + Vector2(-7.0 * s, 1), grey, 2.0)
 
 
 func _flight_frame(n: int) -> int:

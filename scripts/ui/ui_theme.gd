@@ -67,14 +67,18 @@ static func button(b: Button) -> Button:
 
 
 static func panel(p: PanelContainer) -> PanelContainer:
+	p.add_theme_stylebox_override("panel", panel_box())
+	return p
+
+
+static func panel_box() -> StyleBoxFlat:
 	# Panels sit over live gameplay, so they are effectively opaque -- reading a
 	# price list through a moving beach is not a feature.
 	var sb := _box(Color(0.05, 0.08, 0.12, 0.985),
 		Color(ACCENT.r, ACCENT.g, ACCENT.b, 0.45), 2, 10)
 	sb.shadow_color = Color(0, 0, 0, 0.5)
 	sb.shadow_size = 10
-	p.add_theme_stylebox_override("panel", sb)
-	return p
+	return sb
 
 
 static func present(c: Control) -> void:

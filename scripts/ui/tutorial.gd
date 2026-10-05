@@ -38,6 +38,10 @@ class Rings extends Control:
 	var t := 0.0
 
 	func _process(delta: float) -> void:
+		# The tutorial is hidden, not freed, once it is done -- don't keep
+		# redrawing invisible rings for the rest of the session.
+		if not is_visible_in_tree():
+			return
 		t = fposmod(t + delta, TAU * 10.0)
 		queue_redraw()
 
@@ -87,10 +91,9 @@ func build() -> void:
 	add_child(_rings)
 
 	# A plain Panel (children placed by hand) wearing the same style as the
-	# game's other panels, borrowed from a throwaway PanelContainer.
+	# game's other panels.
 	_card = Panel.new()
-	_card.add_theme_stylebox_override("panel",
-		UiTheme.panel(PanelContainer.new()).get_theme_stylebox("panel"))
+	_card.add_theme_stylebox_override("panel", UiTheme.panel_box())
 	_card.size = Vector2(CARD_W, CARD_H)
 	add_child(_card)
 

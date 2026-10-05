@@ -31,7 +31,6 @@ var at_eye := 0.6
 var eye_len := 20.0
 
 var _eye_left := 0.0
-var _eye_done := false
 
 const EYE_TINT := Color(1.10, 1.00, 0.82)       # golden light in the eye
 
@@ -49,7 +48,6 @@ func configure(beach: Dictionary) -> void:
 	at_front = float(h.get("front", 0.35))
 	at_eye = float(h.get("eye", 0.6))
 	eye_len = float(h.get("eye_len", 20.0))
-	_eye_done = false
 	_eye_left = 0.0
 	phase = Phase.CALM
 	if active:
@@ -65,10 +63,6 @@ func progress() -> float:
 
 func spawn_factor() -> float:
 	return float(SPAWN[phase]) if active else 1.0
-
-
-func eye_left() -> float:
-	return _eye_left if phase == Phase.EYE else 0.0
 
 
 func tick(delta: float) -> void:
@@ -100,8 +94,7 @@ func _enter(next: int) -> void:
 			game.wind.set_live(0.0, 0.0, 0.0, 1.0, 1.0)
 			game.weather.force_storm(false)
 			game.tween_tint(Weather.TINT_CLEAR)
-			game.surf.active = false
-			game.surf.waves.clear()
+			game.surf.calm()
 		Phase.GATHERING:
 			game.wind.set_live(24.0, 14.0, 3.5, 1.8, 1.0)
 			game.popup("HURRICANE APPROACHING", Vector2(180, 300), Color(0.8, 0.9, 1.0))
@@ -114,11 +107,9 @@ func _enter(next: int) -> void:
 			game.popup("THE HURRICANE HITS", Vector2(180, 300), Color(1.0, 0.7, 0.6))
 		Phase.EYE:
 			_eye_left = eye_len
-			_eye_done = true
 			game.wind.set_live(0.0, 0.0, 0.0, 1.0, 1.0)
 			game.weather.force_storm(false)
-			game.surf.active = false
-			game.surf.waves.clear()
+			game.surf.calm()
 			game.tween_tint(EYE_TINT)
 			game.popup("THE EYE OF THE STORM", Vector2(180, 300), Color(1.0, 0.92, 0.55))
 		Phase.BACKWALL:

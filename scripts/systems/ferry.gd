@@ -20,10 +20,9 @@ extends Node2D
 # dropped a fresh line along the whole waterline, which on foot was simply more
 # than could be cleared. A wake over empty water does nothing.
 #
-# Uses assets/sprites/ferry.png if present (drawn at 2x, bow facing RIGHT);
-# otherwise a placeholder boat drawn in code.
+# The boat is assets/sprites/ferry.png, drawn at 2x, bow facing RIGHT.
 
-const TEXTURE_PATH := "res://assets/sprites/ferry.png"
+const ART := preload("res://assets/sprites/ferry.png")
 const STERN := 50.0          # px from the ferry's centre to its stern
 const LEAD := 270.0          # how far beyond the screen edge it starts (the horn comes first)
 
@@ -44,7 +43,6 @@ var _next := 0.0
 var _bob := 0.0
 var _churn := 0.0
 var _tan := 0.364
-var _tex: Texture2D
 var _riders: Array = []
 var _spray: Array = []
 var _hit_once := false
@@ -68,7 +66,6 @@ func configure(beach: Dictionary) -> void:
 	_riders.clear()
 	_spray.clear()
 	_next = first
-	_tex = load(TEXTURE_PATH) if ResourceLoader.exists(TEXTURE_PATH) else null
 	queue_redraw()
 
 
@@ -306,21 +303,7 @@ func _draw_spray() -> void:
 
 
 func _draw_boat(p: Vector2) -> void:
-	if _tex != null:
-		var sz := _tex.get_size() * 2.0
-		draw_set_transform(p, 0.0, Vector2(_dir, 1.0))
-		draw_texture_rect(_tex, Rect2(-sz * 0.5, sz), false)
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-		return
-	# Placeholder: a blocky white ferry facing _dir.
-	var d := _dir
-	var hull := Color(0.96, 0.96, 0.95)
-	var glass := Color(0.12, 0.18, 0.30)
-	draw_rect(Rect2(p.x - 48.0, p.y - 6.0, 96.0, 16.0), hull)
-	draw_rect(Rect2(p.x - 46.0, p.y - 1.0, 92.0, 3.0), Color(0.13, 0.43, 0.78))
-	draw_rect(Rect2(p.x - 30.0, p.y - 18.0, 58.0, 12.0), hull)
-	var wx := -26.0
-	while wx < 24.0:
-		draw_rect(Rect2(p.x + wx, p.y - 15.0, 4.0, 4.0), glass)
-		wx += 7.0
-	draw_rect(Rect2(p.x + d * 6.0 - 10.0, p.y - 26.0, 20.0, 8.0), hull)
+	var sz := ART.get_size() * 2.0
+	draw_set_transform(p, 0.0, Vector2(_dir, 1.0))
+	draw_texture_rect(ART, Rect2(-sz * 0.5, sz), false)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

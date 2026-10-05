@@ -100,7 +100,14 @@ func _tick_seaweed(delta: float) -> void:
 	# spawning up but never raises the cap. A beach's own spawn_scale (Holbox)
 	# applies here too, for the same reason.
 	var cap := int(float(game.seaweed_cap()) * float(game.cap_scale()))
-	if count_seaweed(false) >= cap or count_units(false) >= int(float(cap) * UNIT_CAP):
+	# One pass for both counts: clumps, and the units in them.
+	var clumps := 0
+	var units := 0
+	for c in game.world.get_children():
+		if c is Seaweed and not (c as Seaweed).kelp:
+			clumps += 1
+			units += (c as Seaweed).units
+	if clumps >= cap or units >= int(float(cap) * UNIT_CAP):
 		return
 	spawn_seaweed(int(game.storm_burst()) if game.storm_active else 1)
 
@@ -194,14 +201,6 @@ func _add_seaweed(pos: Vector2, units: int, kelp: bool, drifts: bool) -> Seaweed
 	s.shore_y = Zones.SHORE_Y
 	game.world.add_child(s)
 	return s
-
-
-func count_units(is_kelp: bool) -> int:
-	var n := 0
-	for c in game.world.get_children():
-		if c is Seaweed and (c as Seaweed).kelp == is_kelp:
-			n += (c as Seaweed).units
-	return n
 
 
 func count_seaweed(is_kelp: bool) -> int:

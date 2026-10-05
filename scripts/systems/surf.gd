@@ -102,6 +102,17 @@ func start_set() -> void:
 	_next_set = every * randf_range(0.8, 1.2)
 
 
+func calm() -> void:
+	# Switched off mid-set (Tulum's eye, or its calm start): nothing left
+	# rolling or in the air, and the picture cleared now -- tick() stops while
+	# inactive, so without the redraw the last frame stayed frozen on screen.
+	active = false
+	waves.clear()
+	_queue.clear()
+	_spray.clear()
+	queue_redraw()
+
+
 func tick(delta: float) -> void:
 	if not active:
 		return
@@ -198,12 +209,10 @@ func _break(w: Dictionary, y: float) -> void:
 	if not big or game == null:
 		return
 	# The big wave throws its riders up onto the sand as it breaks.
-	var landed := 0
 	for sw in w["riders"]:
 		if is_instance_valid(sw) and sw.drifting:
 			sw.position.y = sw.shore_y - randf_range(1.0, 14.0)
 			sw._settle()
-			landed += 1
 	game.shake(5.0 if bool(w["rogue"]) else 3.5, 0.25)
 	game.sfx("dump", 0.6, -6.0)
 

@@ -112,21 +112,26 @@ static func flight_tex(t: float) -> Texture2D:
 func _draw() -> void:
 	if not active:
 		return
-	var sz := ART.get_size() * 2.0
 	for b in birds:
 		var flying: bool = b["state"] != "stand" and not (b["state"] == "off" and b["delay"] > 0.0)
-		var ph: float = b["phase"]
-		var p: Vector2 = b["pos"]
-		var face := Vector2(-1.0 if b["flip"] else 1.0, 1.0)
-		if flying:
-			# Flight frames are drawn centred, lifted off the feet; a slow drift up and
-			# down rides along with the wingbeat.
-			var tex := flight_tex(_anim + ph)
-			var fs := tex.get_size() * 2.0
-			draw_set_transform(p + Vector2(0, -fs.y * 0.5 + sin(_anim * 3.0 + ph) * 2.0), 0.0, face)
-			draw_texture_rect(tex, Rect2(-fs * 0.5, fs), false)
-		else:
-			draw_circle(p + Vector2(0, 1), 5.0, Color(0, 0, 0, 0.18))
-			draw_set_transform(p + Vector2(0, sin(_anim * 1.5 + ph)), 0.0, face)
-			draw_texture_rect(ART, Rect2(Vector2(-sz.x * 0.5, -sz.y), sz), false)
-		draw_set_transform(Vector2.ZERO)
+		if not flying:
+			draw_circle(b["pos"] + Vector2(0, 1), 5.0, Color(0, 0, 0, 0.18))
+		draw_bird(self, b["pos"], flying, b["flip"], _anim, b["phase"])
+
+
+static func draw_bird(c: CanvasItem, p: Vector2, flying: bool, flip: bool, anim: float, ph: float) -> void:
+	# One flamingo at 2x, art facing right (flip for left), with its feet at p.
+	# Standing, it bobs gently; flying, it beats or glides (flight_tex) and is
+	# lifted off its feet so taking off or landing never jumps. Shared with
+	# Holbox's flock.
+	var face := Vector2(-1.0 if flip else 1.0, 1.0)
+	if flying:
+		var tex := flight_tex(anim + ph)
+		var fs := tex.get_size() * 2.0
+		c.draw_set_transform(p + Vector2(0, -fs.y * 0.5 + sin(anim * 3.0 + ph) * 2.0), 0.0, face)
+		c.draw_texture_rect(tex, Rect2(-fs * 0.5, fs), false)
+	else:
+		var sz := ART.get_size() * 2.0
+		c.draw_set_transform(p + Vector2(0, sin(anim * 1.5 + ph)), 0.0, face)
+		c.draw_texture_rect(ART, Rect2(Vector2(-sz.x * 0.5, -sz.y), sz), false)
+	c.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

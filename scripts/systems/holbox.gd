@@ -15,7 +15,7 @@ extends Node2D
 #   FLAMINGOS    A flock lands on a stretch of beach. You cannot work that stretch
 #                -- or reach the seaweed under them -- until they move on.
 #
-# Everything is drawn in code for now; art can replace it later.
+# The sandbar is drawn in code; the whale shark and flamingos are art.
 
 var game
 var active := false
@@ -32,10 +32,8 @@ var flamingo_arc := 0.5
 var flamingo_count := 8
 
 const RAMP := 1.5                 # seconds to arrive and to leave
-# A flamingo stands about two-thirds of a person's height; at 1x they were a
-# third of a tourist's and a flock read as a pink smudge.
-const FLAMINGO_SCALE := 2.0
 const WHALE_SCALE := 1.4          # it should feel huge next to the tourists
+const WHALE := preload("res://assets/sprites/whale_shark.png")   # top view, head right, 2x
 
 var event := ""                   # "", "whale", "sandbar", "flamingo"
 var angle := 0.0                  # which side of the island it is happening on
@@ -47,10 +45,6 @@ var _anim := 0.0
 var _birds: Array = []            # {home, phase}
 var _arc := 0.5                   # the flock's half-width this time, radians
 var _under: Node2D                # drawn beneath the sprites: sandbar, whale
-var _flamingo_tex: Texture2D      # art if present, else drawn in code
-var _whale_tex: Texture2D
-const FLAMINGO_PATH := "res://assets/sprites/flamingo.png"      # facing right, drawn at 2x
-const WHALE_PATH := "res://assets/sprites/whale_shark.png"      # top view, head right, 2x
 var _over: Node2D                 # drawn with them: flamingos
 
 
@@ -91,8 +85,6 @@ func configure(beach: Dictionary) -> void:
 	_last = ""
 	_next = first
 	_birds.clear()
-	_flamingo_tex = load(FLAMINGO_PATH) if ResourceLoader.exists(FLAMINGO_PATH) else null
-	_whale_tex = load(WHALE_PATH) if ResourceLoader.exists(WHALE_PATH) else null
 
 
 # ---- the rotation -----------------------------------------------------------
@@ -356,79 +348,18 @@ func _draw_whale(c: CanvasItem) -> void:
 	var sweep := angle + (_t / maxf(_len, 0.01) - 0.5) * 0.6
 	var pos := Zones.CENTER + Vector2(cos(sweep), sin(sweep)) * (Zones.DEEP_TOP + 32.0)
 	var fwd := Vector2(-sin(sweep), cos(sweep))
-	var side := Vector2(-fwd.y, fwd.x)
-	if _whale_tex != null:
-		var sz := _whale_tex.get_size() * 2.0 * WHALE_SCALE * 0.75
-		c.draw_set_transform(pos, fwd.angle(), Vector2.ONE)
-		c.draw_texture_rect(_whale_tex, Rect2(-sz * 0.5, sz), false, Color(1, 1, 1, 0.9 * a))
-		c.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-		c.draw_arc(pos, sz.x * 0.62 + sin(_anim * 2.0) * 3.0, 0.0, TAU, 28, Color(1, 1, 1, 0.35 * a), 2.0)
-		return
-	var body := Color(0.20, 0.30, 0.40, 0.85 * a)
-	var W := WHALE_SCALE
-	var pts := PackedVector2Array()
-	for i in 20:
-		var f := float(i) / 19.0 * TAU
-		pts.append(pos + fwd * cos(f) * 36.0 * W + side * sin(f) * 10.0 * W * (0.7 + 0.3 * cos(f)))
-	c.draw_colored_polygon(pts, body)
-	# tail
-	var tail := pos - fwd * 36.0 * W
-	var wag := sin(_anim * 4.0) * 5.0 * W
-	c.draw_colored_polygon(PackedVector2Array([tail, tail - fwd * 14.0 * W + side * (10.0 * W + wag),
-		tail - fwd * 8.0 * W, tail - fwd * 14.0 * W - side * (10.0 * W - wag)]), body)
-	# the white spots it is named for
-	for i in 14:
-		var u := float(i % 7) / 6.0 * 1.6 - 0.8
-		var v := (0.45 if i < 7 else -0.45)
-		c.draw_rect(Rect2(pos + fwd * u * 30.0 * W + side * v * 8.0 * W - Vector2(1, 1), Vector2(3, 3)),
-			Color(0.92, 0.95, 1.0, 0.8 * a))
+	var sz := WHALE.get_size() * 2.0 * WHALE_SCALE * 0.75
+	c.draw_set_transform(pos, fwd.angle(), Vector2.ONE)
+	c.draw_texture_rect(WHALE, Rect2(-sz * 0.5, sz), false, Color(1, 1, 1, 0.9 * a))
+	c.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	# a ring of ripples where it breaks the surface
-	c.draw_arc(pos, 44.0 * W + sin(_anim * 2.0) * 3.0, 0.0, TAU, 28, Color(1, 1, 1, 0.35 * a), 2.0)
+	c.draw_arc(pos, sz.x * 0.62 + sin(_anim * 2.0) * 3.0, 0.0, TAU, 28, Color(1, 1, 1, 0.35 * a), 2.0)
 
 
 func _draw_flamingos(c: CanvasItem) -> void:
 	# Pink birds flying in from out at sea, standing about, then leaving.
 	var a := presence()
-	var flying := a < 1.0
-	var F := FLAMINGO_SCALE
 	for b in _birds:
 		var home: Vector2 = b["home"]
-		var ph: float = b["phase"]
-		var out := Zones.outward(home)
-		var pos := home + out * (1.0 - a) * 140.0 + Vector2(0, -(1.0 - a) * 40.0)
-		var pink := Color(0.98, 0.52, 0.64)
-		var dark := Color(0.55, 0.22, 0.30)
-		if flying:
-			var ft := Flamingos.flight_tex(_anim + ph)
-			var fz := ft.get_size() * 2.0
-			c.draw_set_transform(pos + Vector2(0, -fz.y * 0.5), 0.0, Vector2(-1.0 if b["flip"] else 1.0, 1.0))
-			c.draw_texture_rect(ft, Rect2(-fz * 0.5, fz), false)
-			c.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-			continue
-		if _flamingo_tex != null:
-			var sz := _flamingo_tex.get_size() * 2.0
-			var bobbing := sin(_anim * (9.0 if flying else 1.5) + ph) * (3.0 if flying else 1.0)
-			var tilt := -0.35 if flying else 0.0
-			c.draw_set_transform(pos + Vector2(0, bobbing), tilt, Vector2(-1.0 if b["flip"] else 1.0, 1.0))
-			c.draw_texture_rect(_flamingo_tex, Rect2(Vector2(-sz.x * 0.5, -sz.y), sz), false)
-			c.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-			continue
-		if flying:
-			var flap := sin(_anim * 14.0 + ph) * 5.0 * F
-			c.draw_rect(Rect2(pos - Vector2(5 * F, 2 * F), Vector2(10 * F, 4 * F)), pink)
-			c.draw_line(pos, pos + Vector2(-8 * F, -flap), pink, 2.0 * F)
-			c.draw_line(pos, pos + Vector2(8 * F, -flap), pink, 2.0 * F)
-			c.draw_line(pos + Vector2(5 * F, 0 * F), pos + Vector2(10 * F, -1 * F), pink, 2.0 * F)
-			continue
-		var bob := sin(_anim * 1.5 + ph) * 1.0 * F
-		var body := pos + Vector2(0, -12.0 * F + bob)
-		# legs (one sometimes tucked up), body, S-curved neck, head and beak
-		c.draw_line(pos, body + Vector2(-1 * F, 3 * F), dark, 1.0 * F)
-		if sin(_anim * 0.6 + ph) < 0.6:
-			c.draw_line(pos + Vector2(2 * F, 0 * F), body + Vector2(1 * F, 3 * F), dark, 1.0 * F)
-		c.draw_colored_polygon(PackedVector2Array([body + Vector2(-5 * F, 0 * F), body + Vector2(0 * F, -4 * F),
-			body + Vector2(5 * F, -1 * F), body + Vector2(2 * F, 3 * F), body + Vector2(-4 * F, 3 * F)]), pink)
-		c.draw_line(body + Vector2(3 * F, -2 * F), body + Vector2(5 * F, -7 * F), pink, 2.0 * F)
-		c.draw_line(body + Vector2(5 * F, -7 * F), body + Vector2(3 * F, -11 * F), pink, 2.0 * F)
-		c.draw_rect(Rect2(body + Vector2(2 * F, -13 * F), Vector2(3 * F, 3 * F)), pink)
-		c.draw_line(body + Vector2(5 * F, -12 * F), body + Vector2(7 * F, -10 * F), dark, 1.0 * F)
+		var pos := home + Zones.outward(home) * (1.0 - a) * 140.0 + Vector2(0, -(1.0 - a) * 40.0)
+		Flamingos.draw_bird(c, pos, a < 1.0, b["flip"], _anim, b["phase"])

@@ -9,8 +9,6 @@ extends Node
 # Gulf with periodic gusts. It pushes the player -- faster downwind, slower
 # upwind -- and slides the drifting seaweed along the coast.
 
-signal gust_started
-
 var game
 
 var strength := 0.0      # base push, px/sec
@@ -97,7 +95,6 @@ func tick(delta: float) -> void:
 			gusting = true
 			_gust_t = gust_len
 			_next_gust = gust_every * randf_range(0.75, 1.25)
-			gust_started.emit()
 			if game != null:
 				game.sfx("gust", randf_range(0.92, 1.08), -2.0)
 	if _bed != null and _bed.playing:

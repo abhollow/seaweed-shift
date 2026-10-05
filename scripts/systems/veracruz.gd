@@ -118,7 +118,6 @@ func _launch_front() -> void:
 			"v": randf_range(UMBRELLA_SPEED[0], UMBRELLA_SPEED[1]) * _dir,
 			"rot": randf() * TAU,
 			"bounce": randf() * TAU,
-			"col": [Color(0.95, 0.3, 0.25), Color(0.25, 0.55, 0.95), Color(1.0, 0.8, 0.2)][i % 3],
 		})
 
 
@@ -268,44 +267,16 @@ func _draw_art(tex: Texture2D, p: Vector2, rot: float = 0.0) -> void:
 
 func _draw_umbrella(u: Dictionary) -> void:
 	var hop := absf(sin(float(u["bounce"]))) * 8.0
-	var p: Vector2 = u["pos"] - Vector2(0, hop)
-	if UMBRELLA_ART != null:
-		_draw_art(UMBRELLA_ART, p, float(u["rot"]))
-		return
-	draw_set_transform(p, float(u["rot"]))
-	var col: Color = u["col"]
-	var canopy := PackedVector2Array()
-	for i in 9:
-		var a := PI + PI * float(i) / 8.0
-		canopy.append(Vector2(cos(a) * 11.0, sin(a) * 7.0))
-	draw_colored_polygon(canopy, col)
-	for i in 4:
-		var a := PI + PI * (float(i) + 0.5) / 4.0
-		draw_line(Vector2.ZERO, Vector2(cos(a) * 11.0, sin(a) * 7.0), Color(1, 1, 1, 0.8), 1.0)
-	draw_line(Vector2.ZERO, Vector2(0, 9), Color(0.45, 0.32, 0.2), 1.5)
-	draw_set_transform(Vector2.ZERO)
+	_draw_art(UMBRELLA_ART, u["pos"] - Vector2(0, hop), float(u["rot"]))
 
 
 func _draw_crate(k: Dictionary) -> void:
 	var p: Vector2 = k["pos"]
 	if not bool(k["beached"]):
 		p.y += sin(float(k["bob"]) * 2.2) * 1.5
-	if CRATE_ART != null:
-		_draw_art(CRATE_ART, p, sin(float(k["bob"]) * 1.7) * 0.08 if not bool(k["beached"]) else 0.0)
-		if not bool(k["beached"]):
-			draw_arc(p + Vector2(0, 9), 12.0, 0.15, PI - 0.15, 10, Color(1, 1, 1, 0.5), 1.0)
-		elif float(k["pick"]) > 0.0:
-			var fp := clampf(float(k["pick"]) / PICK_LEN, 0.0, 1.0)
-			draw_rect(Rect2(p + Vector2(-10, -15), Vector2(20.0 * fp, 2)), Color(1.0, 0.85, 0.45))
-		return
-	var r := Rect2(p - Vector2(9, 7), Vector2(18, 14))
-	draw_rect(r, Color(0.58, 0.40, 0.22))
-	draw_rect(r, Color(0.30, 0.20, 0.10), false, 1.0)
-	draw_line(r.position + Vector2(0, 5), r.position + Vector2(18, 5), Color(0.40, 0.27, 0.14), 1.0)
-	draw_line(r.position + Vector2(0, 10), r.position + Vector2(18, 10), Color(0.40, 0.27, 0.14), 1.0)
-	draw_line(r.position, r.end, Color(0.40, 0.27, 0.14), 1.0)
+	_draw_art(CRATE_ART, p, sin(float(k["bob"]) * 1.7) * 0.08 if not bool(k["beached"]) else 0.0)
 	if not bool(k["beached"]):
-		draw_arc(p + Vector2(0, 7), 11.0, 0.15, PI - 0.15, 10, Color(1, 1, 1, 0.5), 1.0)
+		draw_arc(p + Vector2(0, 9), 12.0, 0.15, PI - 0.15, 10, Color(1, 1, 1, 0.5), 1.0)
 	elif float(k["pick"]) > 0.0:
-		var f := clampf(float(k["pick"]) / PICK_LEN, 0.0, 1.0)
-		draw_rect(Rect2(p + Vector2(-9, -12), Vector2(18.0 * f, 2)), Color(1.0, 0.85, 0.45))
+		var fp := clampf(float(k["pick"]) / PICK_LEN, 0.0, 1.0)
+		draw_rect(Rect2(p + Vector2(-10, -15), Vector2(20.0 * fp, 2)), Color(1.0, 0.85, 0.45))

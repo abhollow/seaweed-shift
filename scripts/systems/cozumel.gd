@@ -216,30 +216,12 @@ func _draw_ship() -> void:
 	var y := Zones.DEEP_TOP + 46.0
 	var x := _ship_x
 	var half := SHIP_LEN * 0.5
-	if SHIP_ART != null:
-		# The art faces right; mirrored for a westbound crossing. The hull is
-		# dimmed to night, the lit windows still read as warm light.
-		var sz := SHIP_ART.get_size() * 2.0
-		draw_set_transform(Vector2(x, y), 0.0, Vector2(_ship_dir, 1.0))
-		draw_texture_rect(SHIP_ART, Rect2(Vector2(-sz.x * 0.5, -sz.y + 8.0), sz), false, Color(0.72, 0.74, 0.88))
-		draw_set_transform(Vector2.ZERO)
-		draw_rect(Rect2(x - half, y + 9, SHIP_LEN, 2), Color(1.0, 0.8, 0.4, 0.25))
-		return
-	var hull := PackedVector2Array([Vector2(x - half, y - 6), Vector2(x + half, y - 6),
-		Vector2(x + half - 10.0 * _ship_dir, y + 8), Vector2(x - half + 6.0 * _ship_dir, y + 8)])
-	draw_colored_polygon(hull, Color(0.10, 0.11, 0.16))
-	draw_rect(Rect2(x - half * 0.7, y - 18, half * 1.4, 12), Color(0.14, 0.15, 0.20))
-	draw_rect(Rect2(x - half * 0.4, y - 26, half * 0.8, 8), Color(0.16, 0.17, 0.22))
-	draw_rect(Rect2(x - 4.0 * _ship_dir - 3.0, y - 34, 6, 8), Color(0.75, 0.2, 0.15))
-	# rows of lit cabin windows -- the whole point of the ship at night
-	for row in 3:
-		var ry := y - 2.0 - float(row) * 8.0
-		var w := half * (1.0 - 0.3 * float(row))
-		var n := int(w / 5.0)
-		for i in n:
-			var wx := x - w + float(i) * 10.0 + 3.0
-			if (i * 7 + row * 3) % 5 != 0:
-				draw_rect(Rect2(wx, ry, 3, 2), Color(1.0, 0.85, 0.45, 0.95))
+	# The art faces right; mirrored for a westbound crossing. The hull is dimmed
+	# to night, the lit windows still read as warm light.
+	var sz := SHIP_ART.get_size() * 2.0
+	draw_set_transform(Vector2(x, y), 0.0, Vector2(_ship_dir, 1.0))
+	draw_texture_rect(SHIP_ART, Rect2(Vector2(-sz.x * 0.5, -sz.y + 8.0), sz), false, Color(0.72, 0.74, 0.88))
+	draw_set_transform(Vector2.ZERO)
 	# its light on the water
 	draw_rect(Rect2(x - half, y + 9, SHIP_LEN, 2), Color(1.0, 0.8, 0.4, 0.25))
 
@@ -268,13 +250,5 @@ func _draw_diver(d: Dictionary) -> void:
 	# bubbles as they come up and go down
 	if up < 1.0:
 		draw_arc(p + Vector2(0, 2), 6.0 + (1.0 - up) * 6.0, 0.0, TAU, 12, Color(1, 1, 1, 0.5 * (1.0 - up)), 1.0)
-	if DIVER_ART != null:
-		var sz := DIVER_ART.get_size() * 2.0
-		draw_texture_rect(DIVER_ART, Rect2(p - sz * 0.5, sz), false, Color(1, 1, 1, up))
-		return
-	draw_circle(p, 5.0, Color(0.05, 0.06, 0.08, up))
-	draw_rect(Rect2(p + Vector2(-4, -2), Vector2(8, 3)), Color(0.55, 0.85, 1.0, 0.9 * up))
-	draw_line(p + Vector2(4, -1), p + Vector2(5, -8), Color(0.95, 0.75, 0.15, up), 1.5)
-	# torch beam
-	draw_line(p + Vector2(-4, 2), p + Vector2(-14, 8), Color(1.0, 0.95, 0.7, 0.55 * up), 2.0)
-	draw_arc(p, 8.0, 0.0, TAU, 14, Color(1, 1, 1, 0.35 * up), 1.0)
+	var sz := DIVER_ART.get_size() * 2.0
+	draw_texture_rect(DIVER_ART, Rect2(p - sz * 0.5, sz), false, Color(1, 1, 1, up))

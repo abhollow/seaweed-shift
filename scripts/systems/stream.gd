@@ -7,8 +7,6 @@ extends Node2D
 #   CURRENT   Wading through the stream slows the worker and pushes them
 #             downstream toward the sea. A tractor is pushed half as hard.
 #   TOURISTS  Tourists wading across are carried downstream too.
-#   BRIDGE    Optional (bridge_frac). Puerto Morelos had one and it was removed
-#             after playtest -- nobody needed it.
 #   MOUTH     Seaweed lying in the stream floats down to its mouth and piles up
 #             there, so the mouth becomes a hotspot that grows if ignored.
 #   FLOOD     The signature event: rain up in the mangroves flushes a batch of
@@ -22,8 +20,6 @@ var points := PackedVector2Array()
 var half_w := 9.0
 var current := 60.0
 var slow := 0.6
-var bridge_at := 0.0              # arc length along the stream
-var bridge_half := 9.0
 var float_speed := 28.0           # how fast seaweed floats downstream
 var flood_first := 40.0
 var flood_every := 60.0
@@ -54,7 +50,6 @@ func configure(beach: Dictionary) -> void:
 	half_w = float(st.get("half_w", 9.0))
 	current = float(st.get("current", 60.0))
 	slow = float(st.get("slow", 0.6))
-	bridge_half = float(st.get("bridge_half", 9.0))
 	float_speed = float(st.get("float_speed", 28.0))
 	flood_first = float(st.get("flood_first", 40.0))
 	flood_every = float(st.get("flood_every", 60.0))
@@ -64,8 +59,6 @@ func configure(beach: Dictionary) -> void:
 	for i in range(1, points.size()):
 		_lengths.append(_lengths[i - 1] + points[i - 1].distance_to(points[i]))
 	_total = _lengths[_lengths.size() - 1]
-	# No bridge unless the level asks for one.
-	bridge_at = _total * float(st["bridge_frac"]) if st.has("bridge_frac") else -1.0
 	_flood_t = -1.0
 	_next_flood = flood_first
 	_flecks.clear()
@@ -78,17 +71,24 @@ func configure(beach: Dictionary) -> void:
 func closest(p: Vector2) -> Dictionary:
 	# The nearest point on the stream: its distance, arc length and the
 	# downstream direction there.
-	var best := {"d": INF, "s": 0.0, "dir": Vector2.DOWN, "pt": p}
+	# Runs for the worker, every tourist and every pile on this beach each
+	# frame, so the best is tracked in plain values and boxed up once.
+	var best_d := INF
+	var best_i := -1
+	var best_t := 0.0
 	for i in range(points.size() - 1):
-		var a := points[i]
-		var b := points[i + 1]
-		var ab := b - a
-		var t := clampf((p - a).dot(ab) / maxf(ab.length_squared(), 0.001), 0.0, 1.0)
-		var q := a + ab * t
-		var d := p.distance_to(q)
-		if d < float(best["d"]):
-			best = {"d": d, "s": _lengths[i] + ab.length() * t, "dir": ab.normalized(), "pt": q}
-	return best
+		var ab := points[i + 1] - points[i]
+		var t := clampf((p - points[i]).dot(ab) / maxf(ab.length_squared(), 0.001), 0.0, 1.0)
+		var d := p.distance_to(points[i] + ab * t)
+		if d < best_d:
+			best_d = d
+			best_i = i
+			best_t = t
+	if best_i < 0:
+		return {"d": INF, "s": 0.0, "dir": Vector2.DOWN, "pt": p}
+	var seg := points[best_i + 1] - points[best_i]
+	return {"d": best_d, "s": _lengths[best_i] + seg.length() * best_t, "dir": seg.normalized(),
+		"pt": points[best_i] + seg * best_t}
 
 
 func point_at(s: float) -> Dictionary:
@@ -108,21 +108,10 @@ func width() -> float:
 	return half_w
 
 
-func has_bridge() -> bool:
-	return active and bridge_at >= 0.0
-
-
-func on_bridge(p: Vector2) -> bool:
-	if not has_bridge():
-		return false
-	var c := closest(p)
-	return absf(float(c["s"]) - bridge_at) <= bridge_half and float(c["d"]) <= half_w + 8.0
-
-
 func in_stream(p: Vector2) -> bool:
 	if not active:
 		return false
-	return float(closest(p)["d"]) <= width() and not on_bridge(p)
+	return float(closest(p)["d"]) <= width()
 
 
 # ---- effects on the worker ----------------------------------------------------
@@ -132,11 +121,12 @@ func slow_at(p: Vector2) -> float:
 
 
 func push_at(p: Vector2, on_vehicle: bool) -> Vector2:
-	if not in_stream(p):
+	if not active:
 		return Vector2.ZERO
 	var c := closest(p)
-	var f := current * (VEHICLE_PUSH if on_vehicle else 1.0)
-	return (c["dir"] as Vector2) * f
+	if float(c["d"]) > width():
+		return Vector2.ZERO
+	return (c["dir"] as Vector2) * current * (VEHICLE_PUSH if on_vehicle else 1.0)
 
 
 # ---- the flood ----------------------------------------------------------------
@@ -225,22 +215,3 @@ func _draw() -> void:
 		var d: Vector2 = q["dir"]
 		var side := Vector2(-d.y, d.x) * sin(float(s) * 0.7) * width() * 0.5
 		draw_line(p + side, p + side + d * 5.0, Color(1, 1, 1, 0.4), 1.5)
-	if has_bridge():
-		_draw_bridge()
-
-
-func _draw_bridge() -> void:
-	# Wooden planks across the stream, square to its flow.
-	var q: Dictionary = point_at(bridge_at)
-	var p: Vector2 = q["pt"]
-	var d: Vector2 = q["dir"]
-	var across := Vector2(-d.y, d.x)
-	var reach := half_w + 8.0
-	var wood := Color(0.55, 0.36, 0.20)
-	var dark := Color(0.30, 0.18, 0.09)
-	for k in range(-2, 3):
-		var o := p + d * float(k) * 4.0
-		draw_line(o - across * reach, o + across * reach, dark, 4.0)
-		draw_line(o - across * reach, o + across * reach, wood, 3.0)
-	for side in [-1.0, 1.0]:
-		draw_line(p + across * reach * side - d * 10.0, p + across * reach * side + d * 10.0, dark, 2.0)

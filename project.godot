@@ -16,6 +16,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 config/name="Seaweed Shift"
 run/main_scene="res://scenes/menu.tscn"
+run/max_fps=60
 config/quit_on_go_back=false
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://assets/icon/icon.png"

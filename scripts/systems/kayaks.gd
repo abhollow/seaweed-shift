@@ -50,6 +50,7 @@ func _clear() -> void:
 	for s in _sprites:
 		s.queue_free()
 	_sprites.clear()
+	queue_redraw()    # a retried shift mid-crossing left the hulls frozen on screen
 
 
 func crossing() -> bool:
@@ -123,18 +124,12 @@ func _draw() -> void:
 		var b: Dictionary = boats[i]
 		var p: Vector2 = b["pos"]
 		var col: Color = b["hull"]
-		if KAYAK_ART != null:
-			# The art lies on a diagonal (bow up-right): level it, and mirror
-			# it for a westbound tour. Each kayak tinted its own colour.
-			var sz := KAYAK_ART.get_size() * 2.0
-			draw_set_transform(p, ART_TILT * _dir, Vector2(_dir, 1.0))
-			draw_texture_rect(KAYAK_ART, Rect2(-sz * 0.5, sz), false, col.lightened(0.35))
-			draw_set_transform(Vector2.ZERO)
-		else:
-			var hull := PackedVector2Array([p + Vector2(-19, 0), p + Vector2(-11, -5), p + Vector2(11, -5),
-				p + Vector2(19, 0), p + Vector2(11, 5), p + Vector2(-11, 5)])
-			draw_colored_polygon(hull, col)
-			draw_polyline(hull + PackedVector2Array([hull[0]]), col.darkened(0.5), 1.0)
+		# The art lies on a diagonal (bow up-right): level it, and mirror it for
+		# a westbound tour. Each kayak tinted its own colour.
+		var sz := KAYAK_ART.get_size() * 2.0
+		draw_set_transform(p, ART_TILT * _dir, Vector2(_dir, 1.0))
+		draw_texture_rect(KAYAK_ART, Rect2(-sz * 0.5, sz), false, col.lightened(0.35))
+		draw_set_transform(Vector2.ZERO)
 		# the paddle, dipping side to side
 		var a := sin(_anim * PADDLE_FPS * PI + float(i)) * 0.9
 		var c := p + Vector2(0, -6)

@@ -42,7 +42,6 @@ const CLOUD_SPEED_MIN := 3.0
 const CLOUD_SPEED_MAX := 9.0
 const MENU_MUSIC := "res://audio/8-bit_Sunset.mp3"
 const MENU_MUSIC_DB := -8.0
-const FADE_OUT := 0.35
 
 var _settings := {}
 var _settings_panel: PanelContainer
@@ -291,16 +290,6 @@ func _start_music() -> void:
 	_music.play()
 
 
-func _fade_out_music() -> void:
-	# A hard cut into the shift's track clicks. A third of a second is enough to
-	# hide the seam without making the button feel unresponsive.
-	if _music == null or not _music.playing:
-		return
-	var tw := create_tween()
-	tw.tween_property(_music, "volume_db", MENU_MUSIC_DB - 40.0, FADE_OUT)
-	await tw.finished
-
-
 # =============================================================================
 # Actions
 # =============================================================================
@@ -491,13 +480,15 @@ func _slider(box: VBoxContainer, label: String, key: String) -> void:
 	s.value = float(_settings.get(key, 0.8))
 	s.custom_minimum_size = Vector2(0, 28)
 	s.value_changed.connect(_on_slider.bind(key))
+	s.drag_ended.connect(func(_changed: bool): Settings.store(_settings))
 	box.add_child(s)
 
 
 func _on_slider(value: float, key: String) -> void:
+	# Applied live; written to disk when a drag ends or the panel closes, not
+	# on every tick of a drag.
 	_settings[key] = value
 	Settings.apply(_settings)
-	Settings.store(_settings)
 
 
 func _on_reset(btn: Button) -> void:
@@ -513,5 +504,7 @@ func _on_reset(btn: Button) -> void:
 
 
 func _show_settings(v: bool) -> void:
+	if not v:
+		Settings.store(_settings)
 	_settings_panel.visible = v
 	_reset_armed = false

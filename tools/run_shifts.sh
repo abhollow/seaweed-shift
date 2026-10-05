@@ -13,6 +13,6 @@ trap 'rm -f override.cfg' EXIT
 for P in $PAIRS; do
   L="${P%%:*}"; S="${P##*:}"
   rm -f "$OUT/l${L}s$S.jsonl"
-  "$G" --headless --path . --script res://tools/playtest_bot.gd ++ level=$L shift=$S ts=$TS limit=$LIM fails=2 stop=1 out="$OUT/l${L}s$S.jsonl" > "$OUT/l${L}s$S.log" 2>&1 &
+  "$G" --headless --max-fps 0 --path . --script res://tools/playtest_bot.gd ++ level=$L shift=$S ts=$TS limit=$LIM fails=2 stop=1 out="$OUT/l${L}s$S.jsonl" > "$OUT/l${L}s$S.log" 2>&1 &
 done
 wait

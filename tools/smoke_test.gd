@@ -43,6 +43,7 @@ func sim_undisturbed(game, seconds: float) -> void:
 			if c is Tourist:
 				c.free()
 		game.player._stun = 0.0
+		game.player._grace = 0.0
 		t += root.get_process_delta_time()
 		guard += 1
 
@@ -496,13 +497,14 @@ func _run() -> void:
 			and game.player.tex_hopper_back[0] != game.player.tex_hopper[0])
 	check("hopper sprite scales by a whole number",
 		is_equal_approx(game.player.get_node("Sprite").scale.x, 2.0))
-	check("hopper body snapped to 32x48",
-		(game.player.get_node("Shape").shape as RectangleShape2D).size == Vector2(32, 48))
+	check("hopper hitbox trimmed a little from its 32x48 footprint",
+		(game.player.get_node("Shape").shape as RectangleShape2D).size == Game.VEHICLE_HIT_HOPPER
+		and Game.VEHICLE_HIT_HOPPER.x < 32.0 and Game.VEHICLE_HIT_HOPPER.y < 48.0)
 	check("artwork is drawn larger than the hitbox",
 		game.player.get_node("Visual").size == Vector2(60, 84))
 	check("hitbox unchanged by the bigger artwork",
-		(game.player.get_node("Shape").shape as RectangleShape2D).size == Vector2(32, 48))
-	check("gather area is body plus reach on all sides",
+		(game.player.get_node("Shape").shape as RectangleShape2D).size == Game.VEHICLE_HIT_HOPPER)
+	check("gather area is the full footprint plus reach on all sides",
 		(game.player.get_node("GatherArea/Shape").shape as RectangleShape2D).size
 			== Vector2(32 + 44, 48 + 44))
 	check("all upgrades owned", game.owned.size() == 9)
@@ -542,6 +544,7 @@ func _run() -> void:
 		var start: int = game.player._anim_frame
 		for i in steps:
 			game.player._stun = 0.0
+			game.player._grace = 0.0
 			game.player._physics_process(0.016)
 			if game.player._anim_frame != start:
 				moved = true
@@ -644,6 +647,7 @@ func _run() -> void:
 			c.free()
 	paused = false
 	game.player._stun = 0.0
+	game.player._grace = 0.0
 	game.player.in_safe_zone = false
 	game.player.position = Vector2(180, 300)
 	game.player.carried = 8
@@ -776,7 +780,6 @@ func _run() -> void:
 	# Credits alone end the shift -- even with reputation low and no clean
 	# spell behind it, which used to block completion invisibly.
 	game.rep.value = 40.0
-	game.rep.held = 0.0
 	game.credits_earned = int(game.current_level()["credits"]) - 1
 	await frames(3)
 	check("one credit short, the shift carries on", not game.level_done)
@@ -1330,7 +1333,13 @@ func _run() -> void:
 	check("the wake creates no new seaweed", beached_units + drifting_units == wake_units_before)
 	# Shift index 0 here: 20% of the ten rafts ahead of the ferry -- two.
 	check("on shift 1 the wake carries a light 20%", beached_units == 2)
-	check("and leaves the rest drifting", drifting_units == 9)
+	# Only the test's own rafts: the spawner may add a clump of its own while
+	# the test waits a frame.
+	var rafts_drifting := 0
+	for r in ahead + [behind]:
+		if is_instance_valid(r) and (r as Seaweed).drifting:
+			rafts_drifting += 1
+	check("and leaves the rest drifting", rafts_drifting == 9)
 	check("the share climbs shift by shift, 20/30/60/80",
 		is_equal_approx(game.ferry.share_for(0), 0.2) and is_equal_approx(game.ferry.share_for(1), 0.3)
 			and is_equal_approx(game.ferry.share_for(2), 0.6) and is_equal_approx(game.ferry.share_for(3), 0.8))
@@ -1427,6 +1436,7 @@ func _run() -> void:
 
 	# -- small waves are harmless; the big one knocks you back ----------------
 	game.player._stun = 0.0
+	game.player._grace = 0.0
 	game.player.position = Vector2(180, Zones.SHALLOW_TOP + 60.0)
 	var y_in: float = game.player.position.y
 	game.surf.waves.append({"y": y_in + 4.0, "big": false, "rogue": false, "riders": []})
@@ -1454,6 +1464,7 @@ func _run() -> void:
 
 	# -- only a rogue reaches up onto the sand -------------------------------
 	game.player._stun = 0.0
+	game.player._grace = 0.0
 	game.player.position = Vector2(180, Zones.SHALLOW_TOP - 20.0)
 	game.surf.waves.clear()
 	game.surf.waves.append({"y": Zones.SHALLOW_TOP + 10.0, "big": true, "rogue": false, "riders": []})
@@ -1476,6 +1487,7 @@ func _run() -> void:
 		if c is Tourist:
 			c.free()
 	game.player._stun = 0.0
+	game.player._grace = 0.0
 	game.owned["waders"] = true
 	game.owned["tractor"] = true
 	game._recompute_carry()
@@ -1639,8 +1651,12 @@ func _run() -> void:
 	# tourists walk out from the compound in their own direction, and back
 	var isle_tr: Tourist = game.spawner.make_tourist(Zones.CENTER + Vector2(Zones.TOURIST_SPAWN_Y, 0.0), 150.0, false)
 	var d0: float = Zones.depth(isle_tr.position)
-	for i in 20:
+	# Until it has walked a little way (it fades in first), not a fixed frame
+	# count: at a capped 60 fps, 20 frames was right on the edge.
+	for i in 180:
 		await frames(1)
+		if Zones.depth(isle_tr.position) > d0 + 10.0:
+			break
 	check("tourists walk out of the village along a street", Zones.depth(isle_tr.position) > d0 + 10.0
 		and isle_tr.position.x > Zones.CENTER.x + Zones.TOURIST_SPAWN_Y
 		and absf(isle_tr.position.y - Zones.CENTER.y) < Zones.STREET_HALF_W + 4.0)
@@ -1649,7 +1665,7 @@ func _run() -> void:
 	# ---- the three events ----------------------------------------------------
 	var h: Holbox = game.holbox
 	check("the events are running here", h.active)
-	check("the whale shark and flamingos use their art", h._whale_tex != null and h._flamingo_tex != null)
+	check("the whale shark and flamingos use their art", Holbox.WHALE != null and Flamingos.ART != null)
 	h._last = "whale"
 	var repeats := false
 	for i in 12:
@@ -1764,8 +1780,6 @@ func _run() -> void:
 		st.push_at(in_it, true).length() < sp_push.length() * 0.6)
 	var dry: Vector2 = in_it + Vector2(-(mid["dir"] as Vector2).y, (mid["dir"] as Vector2).x) * 30.0
 	check("dry sand either side is unaffected", st.slow_at(dry) == 1.0 and st.push_at(dry, false) == Vector2.ZERO)
-	# no bridge -- playtest found it pointless
-	check("there is no bridge: the stream must be waded", not st.has_bridge())
 	# tourists wading across are carried downstream too
 	var wader: Tourist = Spawner.TOURIST_SCENE.instantiate()
 	wader.game = game
@@ -1843,7 +1857,7 @@ func _run() -> void:
 	game.level = 8
 	game.apply_beach()
 	check("Mahahual is in sargassum season", game.mat.active and game.mat.share > 0.0)
-	check("the drifting mat uses its art", game.mat._tex != null)
+	check("the drifting mat uses its art", SargassumMat.ART != null)
 	game.player.position = Zones.BAY_POS
 	for c in game.world.get_children():
 		if c is Seaweed or c is Tourist:
@@ -1874,6 +1888,7 @@ func _run() -> void:
 	# A stunned or wave-knocked worker cannot rake at all; earlier sections can
 	# leave either running.
 	game.player._stun = 0.0
+	game.player._grace = 0.0
 	game.player._knocking = false
 	game.player.carried = keep_cap - 1
 	sg._player = game.player
@@ -1887,8 +1902,10 @@ func _run() -> void:
 	game.player.carried = 0
 	game.player.carried_value = 0
 	sg._player = null
+	# != plain, not == null: the level's own spawner may have beached some
+	# sargassum near by, and merging into THAT would be right.
 	check("sargassum only piles up with sargassum",
-		game.find_pile_near(plain.position + Vector2(4, 0), sg) == null)
+		game.find_pile_near(plain.position + Vector2(4, 0), sg) != plain)
 	sg.free()
 	plain.free()
 	# the mat
@@ -1948,7 +1965,7 @@ func _run() -> void:
 	game.level = 9
 	game.apply_beach()
 	check("Akumal has its turtle nests", game.nests.size() == 4 and game.hatch.active)
-	check("the hatchlings use their two-frame crawl art", game.hatch._frames.size() == 2)
+	check("the hatchlings use their two-frame crawl art", Hatchlings.FRAMES.size() == 2)
 	game.player.position = Zones.BAY_POS
 	for c in game.world.get_children():
 		if c is Seaweed or c is Tourist:
@@ -2166,6 +2183,7 @@ func _run() -> void:
 	game.player.position = Vector2(180, Zones.SHORE_Y - 40.0)
 	game.player.in_safe_zone = false
 	game.player._stun = 0.0
+	game.player._grace = 0.0
 	cb.pos = Vector2(80, Zones.SHORE_Y - 40.0)
 	var decoy: Tourist = game.spawner.make_tourist(cb.pos + Vector2(10, 0), Zones.SHORE_Y, false)
 	decoy.set_process(false)
@@ -2180,6 +2198,7 @@ func _run() -> void:
 	# on the hunt for the remaining checks.)
 	cb._enter(Crab.State.CHASING)
 	game.player._stun = 0.0
+	game.player._grace = 0.0
 	# Beach only: the worker wading out is out of its reach.
 	game.player.position = Vector2(180, Zones.SHALLOW_TOP + 30.0)
 	cb._hunt_left = 30.0
@@ -2203,6 +2222,7 @@ func _run() -> void:
 	game.player.carried = 6
 	game.player.carried_value = 27.0
 	game.player._stun = 0.0
+	game.player._grace = 0.0
 	cb.pos = game.player.position + Vector2(4, 0)
 	cb.tick(0.01)
 	check("catching the worker drops their load", game.player.carried == 0)
@@ -2211,6 +2231,7 @@ func _run() -> void:
 	check("and is gone for the level", cb.state == Crab.State.GONE and not cb.out())
 	await frames(2)
 	game.player._stun = 0.0
+	game.player._grace = 0.0
 	game.level = 1
 	game.level_index = 0
 	game.apply_beach()
@@ -2278,7 +2299,7 @@ func _run() -> void:
 	game.apply_beach()
 	game.begin_level()
 	check("no seagull until it is bought", not gl.enabled)
-	check("the seagull has its art: flying and perched", gl._fly.size() == 4 and gl._perch.size() == 2)
+	check("the seagull has its art: flying and perched", Seagull.FLY.size() == 4 and Seagull.PERCH.size() == 2)
 	check("it is a tier-2 upgrade with no prerequisite",
 		int(Upgrades.by_id("seagull")["tier"]) == 2 and String(Upgrades.by_id("seagull")["needs"]) == "")
 	game.owned["seagull"] = true
@@ -2311,6 +2332,17 @@ func _run() -> void:
 	check("its seaweed never pays", game.credits_earned == credits0)
 	check("then settles back on the skip", gl.state == Seagull.State.PERCHED)
 	check("slower than the worker", Seagull.SPEED < game.player.base_speed)
+	var snatched: Seaweed = game.spawner._add_seaweed(Vector2(100, Zones.SHORE_Y - 20.0), 2, false, false)
+	snatched.age = 1.0e4
+	gl._target = snatched
+	gl.state = Seagull.State.OUT
+	snatched.free()
+	for i in 5:
+		gl.tick(0.05)
+	check("if the worker scoops its target first, it moves on instead of hanging there",
+		gl.state != Seagull.State.OUT or is_instance_valid(gl._target))
+	for i in 400:
+		gl.tick(0.05)
 	fresh_pile.free()
 	game._reset_player_stats()
 	check("a new level without it sends it away", not gl.enabled)
@@ -2379,12 +2411,14 @@ func _run() -> void:
 	game.player.position = Vector2(180, Zones.HOTEL_BOTTOM + 60.0)
 	game.player.in_safe_zone = false
 	game.player._stun = 0.0
+	game.player._grace = 0.0
 	game.player.carried = 4
 	vz.umbrellas = [{"pos": game.player.position, "v": 100.0, "rot": 0.0, "bounce": 0.0, "col": Color.RED}]
 	vz.tick(0.01)
 	check("a tumbling umbrella knocks the worker down", game.player._stun > 0.0)
 	check("but the load stays in their arms", game.player.carried == 4)
 	game.player._stun = 0.0
+	game.player._grace = 0.0
 	game.player.carried = 0
 	game.player.carried_value = 0.0
 	vz.umbrellas.clear()
@@ -2427,12 +2461,14 @@ func _run() -> void:
 	game.player.position = cz.divers[0]["pos"]
 	game.player.in_safe_zone = false
 	game.player._stun = 0.0
+	game.player._grace = 0.0
 	game.player.carried = 5
 	for i in 30:
 		cz.tick(0.05)
 	await frames(2)
 	check("bump a diver and the load is dropped", game.player.carried == 0)
 	game.player._stun = 0.0
+	game.player._grace = 0.0
 
 	print("\n[bacalar shallows]")
 	game.level = 5
@@ -2446,11 +2482,13 @@ func _run() -> void:
 	game.player.position = (ky.boats[0]["pos"] as Vector2) + Vector2(ky._dir * 4.0, 0)
 	game.player.in_safe_zone = false
 	game.player._stun = 0.0
+	game.player._grace = 0.0
 	game.player.carried = 5
 	ky.tick(0.01)
 	await frames(2)
 	check("paddle into one and the load is dropped", game.player.carried == 0)
 	game.player._stun = 0.0
+	game.player._grace = 0.0
 	var surf_wader: Tourist = game.spawner.make_tourist(Vector2(120, Zones.SHALLOW_TOP + 30.0), Zones.DEEP_TOP, false)
 	surf_wader.set_process(false)
 	await frames(1)
@@ -2518,6 +2556,24 @@ func _run() -> void:
 	check("once the safe window ends, hits land again", game.player.carried == 0)
 	game.player._stun = 0.0
 	game.player._grace = 0.0
+
+	print("\n[later shifts stretched]")
+	var keep_ret: Dictionary = game.retained.duplicate()
+	var keep_lvl: int = game.level
+	var keep_idx: int = game.level_index
+	game.retained = {}
+	game.level = 8
+	game.level_index = 2
+	check("Mahahual's shift 3 target is stretched toward five minutes",
+		game.shift_target() == int(round(float(Levels.LIST[2]["credits"]) * 1.75 / 50.0)) * 50)
+	game.level_index = 0
+	check("but its first shift is not", game.shift_target() == int(Levels.LIST[0]["credits"]))
+	game.level = 1
+	game.level_index = 2
+	check("and early levels keep their targets", game.shift_target() == int(Levels.LIST[2]["credits"]))
+	game.retained = keep_ret
+	game.level = keep_lvl
+	game.level_index = keep_idx
 
 	print("\n[every level's soundtrack]")
 	for lvm in range(1, 11):

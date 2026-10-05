@@ -262,7 +262,6 @@ func refresh() -> void:
 		_goal_bg.visible = false
 		_goal_fill.visible = false
 	else:
-		var lv: Dictionary = game.current_level()
 		var need: int = game.shift_target()
 		var earned: int = game.credits_earned
 
@@ -279,6 +278,13 @@ func refresh() -> void:
 	_refresh_status(rep, player)
 
 
+func _font_colour(l: Label, c: Color) -> void:
+	# Only when it changes: every override makes the label re-theme, reshape
+	# its text and lay itself out again -- and refresh() runs every frame.
+	if l.get_theme_color("font_color") != c:
+		l.add_theme_color_override("font_color", c)
+
+
 func _refresh_meter(rep: Reputation) -> void:
 	var v := int(round(rep.value))
 	_lbl_rep.text = "REP %d" % v
@@ -291,7 +297,7 @@ func _refresh_meter(rep: Reputation) -> void:
 	else:
 		c = Color(0.92, 0.34, 0.31)
 
-	_lbl_rep.add_theme_color_override("font_color", c)
+	_font_colour(_lbl_rep, c)
 	_rep_fill.color = c
 	_rep_fill.size = Vector2(342.0 * (rep.value / 100.0), 6)
 
@@ -301,9 +307,9 @@ func _refresh_status(rep: Reputation, player: Player) -> void:
 	# is the only thing worth saying.
 	if rep.failing():
 		_lbl_status.text = "REPUTATION GONE -- FIRED IN %d" % ceili(rep.fail_countdown())
-		_lbl_status.add_theme_color_override("font_color", Color(0.98, 0.35, 0.32))
+		_font_colour(_lbl_status, Color(0.98, 0.35, 0.32))
 		return
-	_lbl_status.add_theme_color_override("font_color", Color(1.0, 0.86, 0.55))
+	_font_colour(_lbl_status, Color(1.0, 0.86, 0.55))
 
 	# Level warnings, below the failure countdown but above everything else.
 	if game.hurricane != null and game.hurricane.status_text() != "":

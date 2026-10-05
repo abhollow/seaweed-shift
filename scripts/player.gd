@@ -144,7 +144,8 @@ func set_body(hit: Vector2, art: Vector2, c: Color,
 		frames: Array[Texture2D] = [],
 		back_frames: Array[Texture2D] = [],
 		wade_frames: Array[Texture2D] = [],
-		wade_back_frames: Array[Texture2D] = []) -> void:
+		wade_back_frames: Array[Texture2D] = [],
+		footprint: Vector2 = Vector2.ZERO) -> void:
 	# Collision and artwork are deliberately different sizes. The hitbox stays
 	# where it was tuned; the sprite is drawn larger so that at half-density it
 	# has enough pixels to read. A sprite overhanging a tighter hitbox is
@@ -172,9 +173,12 @@ func set_body(hit: Vector2, art: Vector2, c: Color,
 		_show_frame(0)
 		_sprite2d.scale = Vector2(ART_SCALE, ART_SCALE)
 
-	# Grab area is the HITBOX plus reach on every side -- driven by collision,
-	# not by how big the drawing happens to be.
-	var g := hit + Vector2(reach, reach) * 2.0
+	# Grab area is the vehicle's footprint plus reach on every side -- driven
+	# by collision, not by how big the drawing happens to be. The footprint is
+	# the hitbox unless a vehicle's hitbox was trimmed to forgive near-misses
+	# with tourists; that must not shorten its rake as well.
+	var body := footprint if footprint != Vector2.ZERO else hit
+	var g := body + Vector2(reach, reach) * 2.0
 	(_gather_shape.shape as RectangleShape2D).size = g
 	_gather_vis.size = g
 	_gather_vis.position = -g / 2.0
@@ -335,12 +339,11 @@ func get_hit() -> void:
 	# deep kelp is gone in one collision, which is what keeps the late game from
 	# turning into a victory lap.
 	var lost_units := carried
-	var lost_value := int(round(carried_value))
 	carried = 0
 	carried_value = 0.0
 
 	if game != null:
-		game.on_player_hit(lost_units, lost_value, global_position)
+		game.on_player_hit(lost_units, global_position)
 
 
 func _physics_process(delta: float) -> void:
