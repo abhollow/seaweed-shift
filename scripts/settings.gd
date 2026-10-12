@@ -6,6 +6,9 @@ extends RefCounted
 
 const PATH := "user://seaweed_shift_settings.json"
 
+# Where settings actually go; tests point this elsewhere, like SaveGame.path.
+static var path := PATH
+
 const DEFAULTS := {
 	"music": 0.80,
 	"sfx": 0.90,
@@ -15,9 +18,9 @@ const DEFAULTS := {
 
 static func load_all() -> Dictionary:
 	var out := DEFAULTS.duplicate()
-	if not FileAccess.file_exists(PATH):
+	if not FileAccess.file_exists(path):
 		return out
-	var f := FileAccess.open(PATH, FileAccess.READ)
+	var f := FileAccess.open(path, FileAccess.READ)
 	if f == null:
 		return out
 	var text := f.get_as_text()
@@ -32,7 +35,7 @@ static func load_all() -> Dictionary:
 
 
 static func store(data: Dictionary) -> void:
-	var f := FileAccess.open(PATH, FileAccess.WRITE)
+	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f == null:
 		return
 	f.store_string(JSON.stringify(data))

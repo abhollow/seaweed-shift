@@ -62,6 +62,14 @@ func sim(seconds: float) -> void:
 func _run() -> void:
 	print("\n=== Seaweed Shift smoke test ===\n")
 
+	# Saves and settings go to files of the test's own. The wipes below, every
+	# autosave and the settings sliders would otherwise overwrite or erase the
+	# developer's real progress and volume levels in user://.
+	var real_save := FileAccess.get_file_as_string(SaveGame.PATH)
+	var real_settings := FileAccess.get_file_as_string(Settings.PATH)
+	SaveGame.path = "user://smoke_test_save.json"
+	Settings.path = "user://smoke_test_settings.json"
+
 	# Start from a known state -- a save left by a previous run would make the
 	# boot assertions below meaningless.
 	SaveGame.wipe()
@@ -2901,6 +2909,13 @@ func _run() -> void:
 		not AudioServer.is_bus_mute(AudioServer.get_bus_index("SFX")))
 	check("settings persist", abs(float(Settings.load_all()["sfx"]) - 0.9) < 0.001)
 	menu.free()
+
+	print("\n[test isolation]")
+	SaveGame.wipe()
+	DirAccess.remove_absolute(Settings.path)
+	check("the player's own save was never touched",
+		FileAccess.get_file_as_string(SaveGame.PATH) == real_save)
+	check("nor their settings", FileAccess.get_file_as_string(Settings.PATH) == real_settings)
 
 	# --- report -----------------------------------------------------------
 	print("\n=== %d checks, %d failed ===" % [checks, failures.size()])

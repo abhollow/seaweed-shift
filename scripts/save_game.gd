@@ -11,9 +11,13 @@ extends RefCounted
 
 const PATH := "user://seaweed_shift_save.json"
 
+# Where saves actually go. Tests point this at a file of their own, so a run
+# never reads, overwrites or erases the player's real progress.
+static var path := PATH
+
 
 static func store(data: Dictionary) -> bool:
-	var f := FileAccess.open(PATH, FileAccess.WRITE)
+	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f == null:
 		push_warning("Could not write save file: %s" % FileAccess.get_open_error())
 		return false
@@ -24,9 +28,9 @@ static func store(data: Dictionary) -> bool:
 
 static func load_data() -> Dictionary:
 	# Named load_data rather than load() so it doesn't shadow the built-in.
-	if not FileAccess.file_exists(PATH):
+	if not FileAccess.file_exists(path):
 		return {}
-	var f := FileAccess.open(PATH, FileAccess.READ)
+	var f := FileAccess.open(path, FileAccess.READ)
 	if f == null:
 		return {}
 	var text := f.get_as_text()
@@ -40,5 +44,5 @@ static func load_data() -> Dictionary:
 
 
 static func wipe() -> void:
-	if FileAccess.file_exists(PATH):
-		DirAccess.remove_absolute(PATH)
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(path)

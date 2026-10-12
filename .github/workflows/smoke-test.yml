@@ -1,32 +1,51 @@
 name: Smoke test
 
 # Runs the headless assertion suite on every push and pull request. The suite is
-# the project's safety net -- 188 checks covering zones, upgrades, save/load,
+# the project's safety net -- 600+ checks covering zones, upgrades, save/load,
 # animation wiring and UI layout -- so it should gate merges, not sit unrun.
 on:
   push:
     branches: [main]
   pull_request:
 
+# Must be the engine the project is made with (config/features in
+# project.godot). An older engine misreads a newer project's scenes and
+# resources, so a mismatch fails -- or passes -- for reasons that have nothing
+# to do with the game. Bump both lines together; the checksum is in the
+# release's SHA512-SUMS.txt.
+env:
+  GODOT_VERSION: 4.7.2-stable
+  GODOT_SHA512: 9aa00f7a605200940bce3027a567b782f49bd8e940dd06ae9e987bd65aee1b1467edd56ed84fcdcbdd44354bf613bdbb4e5d2913e925850368e150c59ed54c65
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    # A script error mid-run stops the suite before it can quit, and Godot then
+    # idles until killed. Don't let that burn the default six hours.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Godot 4.3
+      - name: Install Godot ${{ env.GODOT_VERSION }}
         run: |
-          wget -q https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
-          unzip -q Godot_v4.3-stable_linux.x86_64.zip
-          chmod +x Godot_v4.3-stable_linux.x86_64
+          zip="Godot_v${GODOT_VERSION}_linux.x86_64.zip"
+          wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/${zip}"
+          echo "${GODOT_SHA512}  ${zip}" | sha512sum -c -
+          unzip -q "$zip"
+          mv "Godot_v${GODOT_VERSION}_linux.x86_64" godot
+          chmod +x godot
 
       # Import FIRST. Without this the class cache is missing and every
       # class_name lookup fails with a confusing parse error.
       - name: Import project
-        run: ./Godot_v4.3-stable_linux.x86_64 --headless --path . --import
+        run: ./godot --headless --path . --import
 
+      # Gated on the exit code: tools/smoke_test.gd quits with 1 when any check
+      # fails (grepping the log for "0 failed" also matched "10 failed").
+      # pipefail stops tee from swallowing that code, and timeout turns a run
+      # that died part-way -- and so never quit -- into a failure, not a hang.
       - name: Run smoke test
         run: |
-          ./Godot_v4.3-stable_linux.x86_64 --headless --path . \
+          set -o pipefail
+          timeout 15m ./godot --headless --path . \
             --script res://tools/smoke_test.gd 2>&1 | tee result.txt
-          grep -q "0 failed" result.txt

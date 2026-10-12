@@ -37,7 +37,9 @@ vec3 hsv2rgb(vec3 c) {
 }
 
 void fragment() {
-	vec4 tex = texture(TEXTURE, UV);
+	// COLOR arrives as the texture already multiplied by the modulate. Sampling
+	// TEXTURE again and multiplying by COLOR would square every channel.
+	vec4 tex = COLOR;
 	if (enabled && tex.a > 0.0) {
 		vec3 hsv = rgb2hsv(tex.rgb);
 		if (hsv.x >= hue_min && hsv.x <= hue_max && hsv.y >= min_sat) {
@@ -48,5 +50,5 @@ void fragment() {
 			tex.rgb = hsv2rgb(hsv);
 		}
 	}
-	COLOR = tex * COLOR;
+	COLOR = tex;
 }

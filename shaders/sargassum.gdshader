@@ -8,7 +8,10 @@ shader_type canvas_item;
 // mistaken for rot. Gold keeps it bright and clearly its own thing.
 
 void fragment() {
-	vec4 c = texture(TEXTURE, UV);
+	// COLOR arrives as the texture already multiplied by the modulate. Sampling
+	// TEXTURE again and multiplying by COLOR would multiply the gold by the
+	// original green -- the very mud described above.
+	vec4 c = COLOR;
 	if (c.g > c.r + 0.03 && c.g >= c.b) {
 		float l = dot(c.rgb, vec3(0.299, 0.587, 0.114));
 		float t = clamp(l * 1.6, 0.0, 1.0);
@@ -20,5 +23,5 @@ void fragment() {
 		vec3 light = vec3(0.98, 0.66, 0.20);
 		c.rgb = t < 0.5 ? mix(dark, mid, t * 2.0) : mix(mid, light, (t - 0.5) * 2.0);
 	}
-	COLOR = c * COLOR;
+	COLOR = c;
 }
