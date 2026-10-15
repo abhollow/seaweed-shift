@@ -260,6 +260,24 @@ optional. Now roughly a third of each shift is storm, and slow, lingering
 tourists make storms crowded as well as slow. Tests pin these values.
 
 
+## Pay doubled again: 9 per unit (18 with the Sorter)
+
+The phone playtest (Oct 2026) put shifts back at about **10 minutes**. The levels
+had filled out since pay was set to 4.5: wind, gust fronts, crowds and other
+events all slow a real player down more than the bot. The target is **5
+minutes**, so pay is doubled again (`Game.BASE_PAY`, `Game.SORTER_PAY`). The
+reasoning is unchanged from the first doubling. A shift needs half the seaweed
+and earns exactly the same credits, so upgrade prices, shop tiers, the resort
+bonus, crate and hatchling rewards all keep their place in the shift.
+
+The cost is the one noted at 6: each upgrade takes half as much seaweed, so the
+on-foot upgrades come quickly. If that feels too easy in hand, raise the tier-1
+prices (and shift 1's target with them), not the shift length.
+
+Happy Hour runs every 300 s (`Weather.HAPPY_EVERY`), so in a 5-minute shift it
+will rarely fire.
+
+
 ## One goal per shift: credits earned
 
 A shift ends the moment its credit target is reached, counting credits EARNED

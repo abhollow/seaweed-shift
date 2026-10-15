@@ -26,12 +26,13 @@ A constant wind blowing left to right, with gusts. All numbers live in
 
 | | Value | Effect |
 |---|---|---|
-| Base push | 48 px/s | Walking into it you move at 63% speed |
+| Base push | 48 px/s | The wind's own strength; what reaches you depends on the rows below |
+| On foot | 70% of the push -- 34 px/s | Walking into it you move at 74% speed |
 | Gusts | every ~13s (10-16), 4s long | Push rises to 2.7x -- 130 px/s -- at the peak |
-| Peak gust, on foot | 130 px/s | **Exactly cancels walking speed: into it, you stand still** |
-| Standing still | 30% of the push | You brace, so you creep rather than slide |
+| Peak gust, on foot | 91 px/s | **Walking into it is a crawl, about 30% speed** |
+| Standing still | 30% of what reaches you | You brace, so you creep rather than slide |
 | On a tractor | 45% of the push | Still drives into a peak gust at 106 px/s |
-| Wading | 130% of the push | Footing is worse in the water |
+| Wading | 130% of the on-foot push | Footing is worse in the water |
 | Floating seaweed | 25% of the push | Rafts slide along the coast, wrapping at the edges |
 | During a storm | x1.5 | A norte and a storm together is the worst of both |
 
@@ -57,6 +58,29 @@ spawning, 1.6% end up there. A test now integrates a full gust.
 
 The first gust arrives early (about 6 seconds in), so a player meets it before
 they have settled into Cancun habits.
+
+### Third pass: softer on foot (phone playtest, Oct 2026)
+
+On the phone, a peak gust that stopped you dead read as more annoying than
+challenging. The worker on foot now takes 70% of the wind (`Player.WIND_ON_FOOT`),
+so walking into a peak gust is a slow crawl rather than a standstill. Gusts still
+shape the route. Nothing else changed: the wind still moves the seaweed, tourists
+and palms at full strength, and the tractor still takes 45%.
+
+## Gust fronts
+
+Every ~50 seconds a front of blown sand sweeps across the beach downwind
+(`scripts/systems/veracruz.gd`). It slides beached piles along, shoves
+tourists, and brings 2-3 beach umbrellas tumbling across.
+
+- **An umbrella hits like a tourist.** It knocks you down, spills the whole load
+  back onto the sand, and gives you the same post-hit grace. At first it only
+  knocked you down and you kept the load, which made it easy to ignore.
+- **It looks like sand, not a wall.** The front is ~600 single-pixel grains in three
+  sand tones, some with short streak trails. They bunch at a ragged, rolling
+  leading edge and thin out behind it. For 3 seconds before it arrives, grains
+  blow in at the upwind edge. It was first drawn as tan slabs, which read on the
+  phone as a solid bar sliding across the beach.
 
 **Music:** three tension tracks (Tropical Tension 1-3), replacing the brighter
 Island Jump and Island Vibes -- a storm level should sound like weather, not a

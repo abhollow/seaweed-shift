@@ -1090,19 +1090,23 @@ func _run() -> void:
 		spd + push > (spd - push) * 1.2)
 	check("standing still you brace, and only creep",
 		game.player.wind_push(false) > 0.0 and game.player.wind_push(false) < push * 0.5)
+	check("on foot the worker takes only part of the wind", push < base_f * 0.8)
 	game.owned["waders"] = true
 	game.owned["tractor"] = true
 	game._recompute_carry()
-	check("a tractor shrugs off most of the wind", game.player.wind_push(true) < push * 0.6)
+	check("a tractor shrugs off most of the wind", game.player.wind_push(true) < base_f * 0.6)
+	check("and more of it than a worker on foot", game.player.wind_push(true) < push)
 	game.owned.clear()
 	game._recompute_carry()
 	game.wind.gusting = true
 	game.wind._gust_t = game.wind.gust_len * 0.5
 	check("a gust pushes harder than the steady wind", game.wind.force() > base_f * 1.8)
-	# The point of the retune: a peak gust on foot stops you dead.
+	# A peak gust on foot used to stop you dead, which played as more annoying
+	# than challenging. Now it is a crawl: real headway, but slow.
 	var walk: float = game.player.current_speed()
-	check("walking into a peak gust on foot gets you nowhere",
-		walk - game.player.wind_push(true) <= walk * 0.1)
+	check("walking into a peak gust on foot is a crawl, not a standstill",
+		walk - game.player.wind_push(true) > walk * 0.2
+		and walk - game.player.wind_push(true) < walk * 0.45)
 	game.owned["waders"] = true
 	game.owned["tractor"] = true
 	game._recompute_carry()
@@ -2421,15 +2425,36 @@ func _run() -> void:
 	game.player._stun = 0.0
 	game.player._grace = 0.0
 	game.player.carried = 4
+	game.player.carried_value = 4.0 * game.price_per_unit
+	var piles_before := 0
+	for c in game.world.get_children():
+		if c is Seaweed:
+			piles_before += 1
 	vz.umbrellas = [{"pos": game.player.position, "v": 100.0, "rot": 0.0, "bounce": 0.0, "col": Color.RED}]
 	vz.tick(0.01)
 	check("a tumbling umbrella knocks the worker down", game.player._stun > 0.0)
-	check("but the load stays in their arms", game.player.carried == 4)
+	check("and, like a tourist, spills the whole load", game.player.carried == 0)
+	await frames(2)  # the spill is deferred out of the hit
+	var piles_after := 0
+	for c in game.world.get_children():
+		if c is Seaweed:
+			piles_after += 1
+	check("back onto the sand", piles_after > piles_before)
+	# The post-hit grace covers umbrellas too: no second hit while it lasts.
+	game.player._stun = 0.0
+	game.player._grace = Player.HIT_GRACE
+	game.player.carried = 3
+	vz.tick(0.01)
+	check("an umbrella can't hit again during the grace window",
+		game.player._stun == 0.0 and game.player.carried == 3)
 	game.player._stun = 0.0
 	game.player._grace = 0.0
 	game.player.carried = 0
 	game.player.carried_value = 0.0
 	vz.umbrellas.clear()
+	for c in game.world.get_children():
+		if c is Seaweed and c != vp:
+			c.free()
 	vz._spill()
 	check("lost cargo floats in from the deep", vz.crates.size() >= 2 and not bool(vz.crates[0]["beached"]))
 	vz.crates[0]["pos"] = game.player.position

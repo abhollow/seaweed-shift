@@ -5,8 +5,8 @@ extends Node2D
 #
 #   GUST FRONT  A wall of blown sand sweeps across the beach downwind. As it
 #               passes it slides the beached piles along with it, staggers the
-#               tourists, and sends beach umbrellas tumbling across -- objects,
-#               so they knock the worker down but do not spill the load.
+#               tourists, and sends beach umbrellas tumbling across. An umbrella
+#               hits like a tourist: the worker goes down and the load spills.
 #   LOST CARGO  A freighter off the port sheds a few crates. They float in and
 #               wash up on the shoreline: heavy (5 slots of the load), never
 #               rot, worth a good bonus at the skip.
@@ -45,6 +45,8 @@ var _anim := 0.0
 
 
 func configure(beach: Dictionary) -> void:
+	if _grains.is_empty():
+		_make_grains()
 	var v: Dictionary = beach.get("veracruz", {})
 	active = not v.is_empty()
 	visible = active
@@ -158,7 +160,12 @@ func _tick_umbrellas(delta: float) -> void:
 		u["pos"] = p
 		var hop := absf(sin(float(u["bounce"]))) * 8.0
 		if game.touches_player(p - Vector2(0, hop), UMBRELLA_SIZE):
-			game.knock_down(p)
+			# The same hit as a tourist's: stunned, the whole load spilled, then
+			# the post-hit grace. It used to only knock the worker down, load
+			# kept, which made the umbrellas easy to ignore.
+			game.player.get_hit()
+			if game.player._stun > 0.0:
+				game.sfx("umbrella_bonk", 1.0, -3.0)
 		if p.x > -60.0 and p.x < Zones.VIEW_W + 60.0:
 			keep.append(u)
 	umbrellas = keep
@@ -230,28 +237,90 @@ func _draw() -> void:
 	var band_top := Zones.HOTEL_BOTTOM
 	var band_h := Zones.SHALLOW_TOP + 30.0 - band_top
 	if _warn >= 0.0:
-		# A haze of sand building at the upwind edge.
-		var a := (1.0 - _warn / WARN_LEN) * 0.35
-		var x := 0.0 if _dir > 0.0 else Zones.VIEW_W - 30.0
-		draw_rect(Rect2(x, band_top, 30.0, band_h), Color(0.85, 0.72, 0.48, a))
+		_draw_warning(band_top, band_h)
 	if front_on():
-		var sx := _screen_x(_front_x)
-		var back := sx - FRONT_W * _dir
-		var r := Rect2(minf(sx, back), band_top, FRONT_W, band_h)
-		# A wall of blown sand, thick at the leading edge and thinning behind.
-		for j in 6:
-			var f := float(j) / 6.0
-			var sl := Rect2(r.position.x + (f if _dir < 0.0 else 1.0 - f - 1.0 / 6.0) * FRONT_W, band_top, FRONT_W / 6.0 + 0.5, band_h)
-			draw_rect(sl, Color(0.88, 0.76, 0.52, 0.72 * (1.0 - f * 0.8)))
-		# streaks of blown sand through it
-		for i in 40:
-			var y := band_top + fmod(float(i) * 37.0 + _anim * 13.0, band_h)
-			var x0 := r.position.x + fmod(float(i) * 23.0, FRONT_W)
-			draw_line(Vector2(x0, y), Vector2(x0 + 18.0 * _dir, y + 1.0), Color(1.0, 0.94, 0.78, 0.85), 1.5)
+		_draw_front(band_top, band_h)
 	for u in umbrellas:
 		_draw_umbrella(u)
 	for k in crates:
 		_draw_crate(k)
+
+
+# The front is blown sand: a few hundred grains, bunched at the leading edge and
+# thinning out behind it, each hopping along at its own pace. It used to be
+# drawn as tan slabs, which read as a solid bar sliding across the beach.
+const GRAINS := 600
+const GRAIN_TAIL := 96.0          # how far behind the leading edge grains trail
+const GRAIN_AHEAD := 8.0          # spray thrown just ahead of it
+const WARN_GRAINS := 220          # blowing in at the upwind edge beforehand
+const WARN_DEPTH := 44.0
+const SAND := [Color(1.0, 0.93, 0.74), Color(0.90, 0.77, 0.52), Color(0.72, 0.58, 0.37)]
+
+# Five numbers per grain: lane down the band, phase, speed, hop phase, look.
+# A fixed seed, so the sand looks the same every time.
+var _grains := PackedFloat32Array()
+
+
+func _make_grains() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 2026
+	_grains.resize(GRAINS * 5)
+	for i in GRAINS:
+		_grains[i * 5] = rng.randf()
+		_grains[i * 5 + 1] = rng.randf()
+		_grains[i * 5 + 2] = rng.randf_range(0.7, 1.5)
+		_grains[i * 5 + 3] = rng.randf() * TAU
+		_grains[i * 5 + 4] = rng.randf()
+
+
+func _draw_front(band_top: float, band_h: float) -> void:
+	var edge := _screen_x(_front_x)
+	for i in GRAINS:
+		var o := i * 5
+		var lane := _grains[o]
+		var rate := _grains[o + 2]
+		# u runs from 1 down to 0 as a grain catches up with the leading edge,
+		# then it starts again at the back. Squared, so most grains bunch up front.
+		var u := fposmod(_grains[o + 1] - _anim * rate * 0.8, 1.0)
+		# A ragged, rolling edge rather than a straight line down the beach.
+		var wave := sin(lane * 9.0 + _anim * 2.5) * 6.0 + sin(lane * 23.0 - _anim * 4.0) * 3.0
+		var behind := u * u * (GRAIN_TAIL + GRAIN_AHEAD) - GRAIN_AHEAD + wave
+		var hop := absf(sin(_anim * 7.0 * rate + _grains[o + 3])) * 3.0
+		var p := Vector2(edge - behind * _dir, band_top + lane * band_h - hop)
+		# Fades at both ends -- the spray out ahead and the far tail -- so a
+		# grain starting over at the back never pops.
+		var a := clampf((u - 0.02) * 12.0, 0.0, 1.0) * (1.0 - u * u)
+		_draw_grain(p, _grains[o + 4], a)
+
+
+func _draw_warning(band_top: float, band_h: float) -> void:
+	# The first grains blowing in at the upwind edge, more as the front nears.
+	var k := 1.0 - _warn / WARN_LEN
+	for i in int(WARN_GRAINS * k):
+		var o := i * 5
+		var rate := _grains[o + 2]
+		var d := fposmod(_grains[o + 1] * WARN_DEPTH + _anim * 40.0 * rate, WARN_DEPTH)
+		var x := d if _dir > 0.0 else Zones.VIEW_W - d
+		var hop := absf(sin(_anim * 7.0 * rate + _grains[o + 3])) * 3.0
+		_draw_grain(Vector2(x, band_top + _grains[o] * band_h - hop), _grains[o + 4],
+			k * (1.0 - d / WARN_DEPTH))
+
+
+func _draw_grain(p: Vector2, look: float, a: float) -> void:
+	if a <= 0.02:
+		return
+	p = p.floor()  # whole pixels, so the sand stays crisp
+	var c: Color = SAND[int(fposmod(look * 7.0, 1.0) * 3.0) % 3]
+	c.a = a
+	if look > 0.93:
+		draw_rect(Rect2(p, Vector2(2, 2)), c)  # a coarse grain
+	else:
+		draw_rect(Rect2(p, Vector2(1, 1)), c)
+		if look > 0.5:
+			# a fast one, with a faint trail behind it
+			var n := floorf(2.0 + (look - 0.5) * 10.0)
+			var tx := p.x - n if _dir > 0.0 else p.x + 1.0
+			draw_rect(Rect2(tx, p.y, n, 1), Color(c, a * 0.4))
 
 
 const UMBRELLA_ART := preload("res://assets/sprites/event_umbrella.png")

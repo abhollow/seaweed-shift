@@ -3,11 +3,11 @@
 A 2D pixel-art mobile game: clean sargassum seaweed off resort beaches along
 Mexico's coast, earn credits, buy better gear, keep each resort's reputation up.
 Ten levels, each a different real location, with one upgrade kept permanently at
-the end of every level. Godot 4.3, portrait 360x640.
+the end of every level. Godot 4.7, portrait 360x640.
 
 ## Running it
 
-Open the folder in Godot 4.3 and press F5.
+Open the folder in Godot 4.7 and press F5.
 
 **If sprites show as coloured rectangles**, delete the `.godot/` folder and
 reopen — a stale import cache is almost always the cause.
@@ -19,7 +19,7 @@ godot --headless --path . --import          # always import first
 godot --headless --path . --script res://tools/smoke_test.gd
 ```
 
-188 assertions covering zones, upgrades, save/load, failure and retry, animation
+600+ assertions covering zones, upgrades, save/load, failure and retry, animation
 wiring and UI layout. Run after every change. CI runs them on push.
 
 ## Layout

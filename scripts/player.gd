@@ -206,6 +206,11 @@ func _apply_jacket() -> void:
 const WIND_MOVING := 1.0
 const WIND_IDLE := 0.3
 const WIND_VEHICLE := 0.45
+# On foot the worker takes 70% of the wind. At the full push a peak gust
+# exactly cancelled walking speed, and in the phone playtest that read as more
+# annoying than challenging. Now walking into a peak gust is a crawl (about 30%
+# speed), not a standstill. The tractor's share above is unchanged.
+const WIND_ON_FOOT := 0.7
 # Footing is worse in the water: wading into a gust is where it bites hardest,
 # so kelp runs on a windy beach want timing between gusts.
 const WIND_WADING := 1.3
@@ -217,8 +222,10 @@ func wind_push(moving: bool) -> float:
 	var k := WIND_MOVING if moving else WIND_IDLE
 	if on_vehicle:
 		k *= WIND_VEHICLE
-	elif in_water():
-		k *= WIND_WADING
+	else:
+		k *= WIND_ON_FOOT
+		if in_water():
+			k *= WIND_WADING
 	return float(game.wind.force()) * k
 
 

@@ -66,10 +66,13 @@ const LIST := {
 			"tourist_despawn_y": 182.0,
 			"bay_pos": Vector2(311, 162),
 		},
-		# Tuned so a peak gust (48 x 2.7 = 130 px/s) exactly cancels walking
-		# speed on foot: walking INTO one you stand still. At the first
-		# pass (30 px/s, 2.4x) the wind was a slope rather than a force --
-		# a minor inconvenience, not something to plan around.
+		# Tuned so a peak gust (48 x 2.7 = 130 px/s) exactly cancelled walking
+		# speed on foot. At the first pass (30 px/s, 2.4x) the wind was a slope
+		# rather than a force -- a minor inconvenience, not something to plan
+		# around. The phone playtest then found a dead stop more annoying than
+		# challenging, so the worker on foot now takes 70% of it
+		# (Player.WIND_ON_FOOT). That leaves the seaweed, tourists, palms and
+		# tractor as they were.
 		# The painted palms, flags and kites sway, driven by the wind above.
 		"sway": {
 			"mask": "res://assets/sprites/sway_level2.png",

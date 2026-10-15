@@ -63,10 +63,12 @@ var credits := 0
 #   3 (6 with the Sorter): shifts ran ~10 minutes -- too long for mobile.
 #   6 (12):  ~5 minutes, but the on-foot upgrades came too easily.
 #   4.5 (9): split the difference -- a little more work for the reward.
+#   9 (18):  the phone playtest put 4.5 back at ~10 minutes a shift as the
+#            levels filled out; doubled for a 5-minute target.
 # Fractional pay is carried as a float and rounded only when it is paid out at
 # the skip, so no half-credits ever show.
-const BASE_PAY := 4.5
-const SORTER_PAY := 9.0
+const BASE_PAY := 9.0
+const SORTER_PAY := 18.0
 var price_per_unit := BASE_PAY
 var storm_active := false
 var happy_hour := false
@@ -1689,16 +1691,6 @@ func touches_player(p: Vector2, size: Vector2) -> bool:
 	var hs: Vector2 = (player._shape.shape as RectangleShape2D).size
 	return absf(player.position.x - p.x) < (hs.x + size.x) * 0.5 \
 		and absf(player.position.y - p.y) < (hs.y + size.y) * 0.5
-
-
-func knock_down(at: Vector2) -> void:
-	# An OBJECT hit: a moment on the sand, but the load stays in your arms.
-	# People (tourists, divers, kayakers) make you drop it; things don't.
-	if player == null or player.in_safe_zone or player._stun > 0.0:
-		return
-	player._stun = 0.6
-	sfx("umbrella_bonk", 1.0, -3.0)
-	shake(3.0, 0.2)
 
 
 func add_credits(n: int) -> void:
